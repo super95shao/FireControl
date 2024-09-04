@@ -2,7 +2,7 @@
 飞控需要玄学Mod作为API （0.0.3+）：
 > @kallen https://github.com/KallenKas024/Metaphysics/tree/main
 
-除此之外，还需要依赖以下mod：
+该火控需要依赖以下mod：
 * Create Big Cannons
 * valkyrien skies 2
 * cc:tweaked
