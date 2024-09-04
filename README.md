@@ -4,9 +4,9 @@
 
 该火控需要依赖以下mod：
 * Create Big Cannons
-* valkyrien skies 2
-* cc:tweaked
-* cc:vs
+* Valkyrien Skies 2
+* CC:Tweaked
+* CC:VS
 * Tom's Peripherals
 
 以下mod非强制，但推荐安装
