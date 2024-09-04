@@ -1,5 +1,5 @@
 ### 这是一款基于Valkyrie skies 2、CBC、CC:Tweaked的火控计算机
-飞控需要玄学Mod作为API （0.0.3+）：
+火控需要玄学Mod作为API （0.0.3+）：
 > @kallen https://github.com/KallenKas024/Metaphysics/tree/main
 
 该火控需要依赖以下mod：
