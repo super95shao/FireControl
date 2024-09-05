@@ -63,7 +63,7 @@ end
 
 system.init()
 
-local gears = {peripheral.find("Create_RotationSpeedController")}
+local gears = { peripheral.find("Create_RotationSpeedController") }
 local yawGear = gears[1]
 local pitchGear = gears[2]
 
@@ -450,9 +450,6 @@ local runCt = function()
         local MAX_ROTATE_SPEED = properties.max_rotate_speed
 
         tmpYaw = resetAngelRange(tmpYaw - cannon.yaw)
-        if properties.InvertYaw then
-            tmpYaw = -tmpYaw
-        end
 
         tmpYaw = math.abs(tmpYaw) > 0.01875 and tmpYaw or 0
         local yawSpeed = math.floor(tmpYaw * ANGLE_TO_SPEED / 2 + 0.5)
@@ -464,14 +461,11 @@ local runCt = function()
         --commands.execAsync(("say tgPitch=%d, CannonPitch=%d"):format(tgPitch, cannon.CannonPitch))
         tgPitch = tgPitch < properties.minPitchAngle and properties.minPitchAngle or tgPitch
         tgPitch = resetAngelRange(cannon.pitch - tgPitch)
-        if properties.InvertPitch then
-            tgPitch = -tgPitch
-        end
 
         tgPitch = math.abs(tgPitch) > 0.01875 and tgPitch or 0
         local pitchSpeed = math.floor(tgPitch * ANGLE_TO_SPEED / 2 + 0.5)
         pitchSpeed = math.abs(pitchSpeed) < properties.max_rotate_speed and pitchSpeed or
-        copysign(properties.max_rotate_speed, pitchSpeed)
+            copysign(properties.max_rotate_speed, pitchSpeed)
 
         --commands.execAsync(("say tgPitch=%0.2f, CannonPitch=%0.2f"):format(tgPitch, cannon.CannonPitch))
         --commands.execAsync(("say yaw=%0.2f, pitch=%0.2f"):format(omega.y, cannon.CannonPitch))
@@ -485,7 +479,13 @@ local runCt = function()
             local yp = math.sin(math.rad(cannon.CannonPitch))
             local newP = RotateVectorByQuat(quatList[properties.face], { x = xp, y = yp, z = zp })
             cannon.yaw = math.deg(math.atan2(newP.z, newP.x))
+            if properties.InvertYaw then
+                cannon.yaw = -cannon.yaw
+            end
             cannon.pitch = math.deg(math.asin(yp))
+            if properties.InvertPitch then
+                cannon.pitch = -cannon.pitch
+            end
         else
             finalYaw = math.floor((yawSpeed / ANGLE_TO_SPEED) * 1000000 + 0.5) / 1000000
             cannon.yaw = resetAngelRange(cannon.yaw + finalYaw)
