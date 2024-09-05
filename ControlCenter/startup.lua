@@ -730,7 +730,7 @@ function absRadarButtons:RadarClick(x, y, button)
                 local px, py = 64 - tmpPos.x / scale, 56 - tmpPos.z / scale
                 v.clickDis = math.abs(x - px) + math.abs(y - py)
                 if group[self.group.index].mode == 3 or group[self.group.index].mode == 4 then
-                    if v.clickDis < minDis and v.slug ~= tgName then
+                    if v.clickDis < minDis and tgName ~= ship.getName() then
                         minDis = v.clickDis
                         group[self.group.index].radarTarget = v
                     end
@@ -741,6 +741,10 @@ function absRadarButtons:RadarClick(x, y, button)
                     end
                 end
             end
+
+            --commands.execAsync(("say name=%s"):format(group[self.group.index].radarTarget.slug))
+            --commands.execAsync(("say y=%d"):format(group[self.group.index].radarTarget.y))
+            --commands.execAsync(("say %s"):format(group[self.group.index].radarTarget.dimension))
 
             if group[self.group.index].radarTarget and group[self.group.index].radarTarget.clickDis > 5 then
                 group[self.group.index].radarTarget = nil
