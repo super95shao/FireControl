@@ -238,9 +238,20 @@ local getY2 = function(t, y0, pitch)
     v0 = v0 and v0 or 0
     local Vy = v0 * sinA
 
-    for i = 1, t, 1 do
+    local index = 1
+    local last = 0
+    while index < t do
         y0 = y0 + Vy
         Vy = 0.99 * Vy - 0.05
+        index = index + 1
+        last = y0
+        last = t
+    end
+
+    index = index - 1
+    for i = last, t, 0.1 do
+        Vy = 0.999 * Vy
+        y0 = y0 + Vy
     end
 
     return y0
