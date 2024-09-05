@@ -32,8 +32,7 @@ end
 system.reset = function()
     return {
         cannonName = "CBC",
-        yawGear = "left",
-        pitchGear = "right",
+        switchGear = false,
         controlCenterId = "-1",
         power_on = "front", --开机信号
         fire = "back",      --开火信号
@@ -64,8 +63,9 @@ end
 
 system.init()
 
-local yawGear = peripheral.wrap(properties.yawGear)
-local pitchGear = peripheral.wrap(properties.pitchGear)
+local gears = {peripheral.find("Create_RotationSpeedController")}
+local yawGear = gears[1]
+local pitchGear = gears[2]
 
 local nbt_reader = peripheral.find("blockReader")
 if not nbt_reader then
@@ -239,9 +239,20 @@ local getY2 = function(t, y0, pitch)
     v0 = v0 and v0 or 0
     local Vy = v0 * sinA
 
-    for i = 1, t, 1 do
+    local index = 1
+    local last = 0
+    while index < t do
         y0 = y0 + Vy
         Vy = 0.99 * Vy - 0.05
+        index = index + 1
+        last = y0
+        last = t
+    end
+
+    index = index - 1
+    for i = last, t, 0.1 do
+        Vy = 0.999 * Vy
+        y0 = y0 + Vy
     end
 
     return y0
@@ -292,7 +303,7 @@ local cannonNet = function()
     parallel.waitForAll(sendRequest, listener)
 end
 
-local cannon = { CannonPitch = 0, CannonYaw = 0, yaw = 0, pitch = 0 }
+local cannon = { CannonPitch = 0, CannonYaw = 0, yaw = 180, pitch = 0 }
 local getPitch = function()
     while true do
         local tmp = nbt_reader.getBlockData()
@@ -346,11 +357,13 @@ end
 
 local ysp, psp
 local send2Yaw = function()
-    yawGear.setTargetSpeed(ysp)
+    local n = properties.switchGear and 1 or 2
+    gears[n].setTargetSpeed(ysp)
 end
 
 local send2Pitch = function()
-    pitchGear.setTargetSpeed(psp)
+    local n = properties.switchGear and 2 or 1
+    gears[n].setTargetSpeed(psp)
 end
 
 local sendToGear = function(y, p)
@@ -359,7 +372,7 @@ local sendToGear = function(y, p)
 end
 
 local pitchList = {}
-for i = -90, 90, 0.0375 do
+for i = -90, 90, 0.01875 do
     table.insert(pitchList, i)
 end
 
@@ -442,7 +455,7 @@ local runCt = function()
         end
 
         tmpYaw = math.abs(tmpYaw) > 0.01875 and tmpYaw or 0
-        local yawSpeed = math.floor(tmpYaw * ANGLE_TO_SPEED / 4 + 0.5)
+        local yawSpeed = math.floor(tmpYaw * ANGLE_TO_SPEED / 2 + 0.5)
         yawSpeed = math.abs(yawSpeed) < MAX_ROTATE_SPEED and yawSpeed or copysign(MAX_ROTATE_SPEED, yawSpeed)
 
         ------self(pitch)-------
@@ -450,16 +463,13 @@ local runCt = function()
 
         --commands.execAsync(("say tgPitch=%d, CannonPitch=%d"):format(tgPitch, cannon.CannonPitch))
         tgPitch = tgPitch < properties.minPitchAngle and properties.minPitchAngle or tgPitch
-        tgPitch = -tgPitch
+        tgPitch = resetAngelRange(cannon.pitch - tgPitch)
         if properties.InvertPitch then
-            tgPitch = resetAngelRange(tgPitch - cannon.pitch)
-        else
-            tgPitch = resetAngelRange(cannon.pitch - tgPitch)
+            tgPitch = -tgPitch
         end
 
         tgPitch = math.abs(tgPitch) > 0.01875 and tgPitch or 0
-        tgPitch = -tgPitch
-        local pitchSpeed = math.floor(tgPitch * ANGLE_TO_SPEED / 4 + 0.5)
+        local pitchSpeed = math.floor(tgPitch * ANGLE_TO_SPEED / 2 + 0.5)
         pitchSpeed = math.abs(pitchSpeed) < properties.max_rotate_speed and pitchSpeed or
         copysign(properties.max_rotate_speed, pitchSpeed)
 
@@ -475,11 +485,11 @@ local runCt = function()
             local yp = math.sin(math.rad(cannon.CannonPitch))
             local newP = RotateVectorByQuat(quatList[properties.face], { x = xp, y = yp, z = zp })
             cannon.yaw = math.deg(math.atan2(newP.z, newP.x))
-            cannon.pitch = -math.deg(math.asin(yp))
+            cannon.pitch = math.deg(math.asin(yp))
         else
             finalYaw = math.floor((yawSpeed / ANGLE_TO_SPEED) * 1000000 + 0.5) / 1000000
             cannon.yaw = resetAngelRange(cannon.yaw + finalYaw)
-            finalPit = math.floor((pitchSpeed / ANGLE_TO_SPEED) * 1000000 + 0.5) / 1000000
+            finalPit = -math.floor((pitchSpeed / ANGLE_TO_SPEED) * 1000000 + 0.5) / 1000000
             cannon.pitch = resetAngelRange(cannon.pitch + finalPit)
         end
     end
@@ -724,8 +734,7 @@ local runTerm = function()
         lock_yaw_face = newSelectBox(properties, "lock_yaw_face", 2, 27, 12, "south", "west", "north", "east"),
         InvertYaw = newSelectBox(properties, "InvertYaw", 1, 41, 13, false, true),
         InvertPitch = newSelectBox(properties, "InvertPitch", 1, 15, 13, false, true),
-        yawGear = newSelectBox(properties, "yawGear", 2, 12, 14, "top", "bottom", "left", "right", "front", "back"),
-        pitchGear = newSelectBox(properties, "pitchGear", 2, 12, 15, "top", "bottom", "left", "right", "front", "back"),
+        switchGear = newSelectBox(properties, "switchGear", 2, 12, 15, false, true),
     }
 
     local sliderTb = {
@@ -776,10 +785,8 @@ local runTerm = function()
                 term.setCursorPos(30, 13)
                 term.write("InvertYaw: ")
 
-                term.setCursorPos(2, 14)
-                term.write("YawGear:")
                 term.setCursorPos(2, 15)
-                term.write("PitchGear:")
+                term.write("switchGear")
 
                 term.setCursorPos(2, 17)
                 term.write("cannonName: ")
