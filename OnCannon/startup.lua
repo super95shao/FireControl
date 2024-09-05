@@ -211,7 +211,7 @@ local getTime = function(dis, pitch)
     --local result = math.log((dis * lnD) / (v0 * math.cos(pitch)) + 1, drag)
     local result = math.abs(math.log(1 - dis / (100 * (math.cos(pitch) * v0))) / (-0.010050335853501))
 
-    return result
+    return result and result or 0
 end
 
 local lnD = ln(0.99)
