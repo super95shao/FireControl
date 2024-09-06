@@ -216,6 +216,43 @@ local getTime = function(dis, pitch)
     return result and result or 0
 end
 
+local timeInAir = function(y, pitch)
+    local sinA = math.sin(pitch)
+    local barrelLength = #properties.barrelLength == 0 and 0 or tonumber(properties.barrelLength)
+    barrelLength = barrelLength and barrelLength or 0
+    local v0 = #properties.velocity == 0 and 0 or tonumber(properties.velocity) / 20
+    v0 = v0 and v0 or 0
+
+    local y0 = barrelLength * sinA
+    local Vy = v0 * sinA
+    local t = 0
+    local t_below = 0
+    if y0 <= y then
+        while t < 10000 do
+            y0 = y0 + Vy
+            Vy = 0.99 * Vy - 0.05
+            t = t + 1
+            if y0 > y then
+                t_below = t - 1
+                break
+            end
+            if Vy < 0 then
+                return -1, -1
+            end
+        end
+    end
+
+    while t < 10000 do
+        y0 = y0 + Vy
+        Vy = 0.99 * Vy - 0.05
+        t = t + 1
+        if y0 <= y then
+            return t_below, t
+        end
+    end
+    return -1, -1
+end
+
 local lnD = ln(0.99)
 local getYcoord = function(t, y0, pitch)
     t = t - 1
@@ -241,21 +278,10 @@ local getY2 = function(t, y0, pitch)
     local Vy = v0 * sinA
 
     local index = 1
-    local lastY0, lastVy = 0, 0
     while index < t do
-        lastY0 = y0
-        lastVy = Vy
         y0 = y0 + Vy
         Vy = 0.99 * Vy - 0.05
         index = index + 1
-    end
-
-    index = index - 1
-    y0 = lastY0
-    Vy = lastVy
-    for i = index, t, 0.1 do
-        Vy = 0.999 * Vy
-        y0 = y0 + Vy
     end
 
     return y0
@@ -270,7 +296,7 @@ local ag_binary_search = function(arr, xDis, y0, yDis)
         local pitch = math.rad(arr[mid])
         time = getTime(xDis, pitch)
         local result = yDis - getY2(time, y0, pitch)
-        if result >= -0.015 and result <= 0.015 then
+        if result >= -0.01 and result <= 0.01 then
             return mid, time
         elseif result > 0 then
             low = mid + 1
@@ -402,32 +428,36 @@ local runCt = function()
 
         local xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
         local mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
-        local tmpPitch = pitchList[mid]
-
-        if controlCenter.mode > 2 then
-            --commands.execAsync(("say cTime=%0.1f"):format(cTime))
-            cTime = cTime + 10
-            target.x = target.x + controlCenter.velocity.x * cTime
-            target.y = target.y + controlCenter.velocity.y * cTime
-            target.z = target.z + controlCenter.velocity.z * cTime
-            tgVec = {
-                x = target.x - cannonPos.x,
-                y = target.y - cannonPos.y,
-                z = target.z - cannonPos.z
-            }
-            xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
-            mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
+        local tmpPitch, tmpVec
+        if cTime > 10 then
             tmpPitch = pitchList[mid]
-        end
+            if controlCenter.mode > 2 then
+                --commands.execAsync(("say cTime=%0.1f"):format(cTime))
+                cTime = cTime + 10
+                target.x = target.x + controlCenter.velocity.x * cTime
+                target.y = target.y + controlCenter.velocity.y * cTime
+                target.z = target.z + controlCenter.velocity.z * cTime
+                tgVec = {
+                    x = target.x - cannonPos.x,
+                    y = target.y - cannonPos.y,
+                    z = target.z - cannonPos.z
+                }
+                xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
+                mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
+                tmpPitch = pitchList[mid]
+            end
 
-        --commands.execAsync(("say tmpPitch=%0.4f, cTime=%0.4f"):format(tmpPitch, cTime))
-        --commands.execAsync(("say xDis=%0.2f, y=%0.2f, tmpPitch=%0.2f, cTime=%0.2f"):format(xDis, tgVec.y, tmpPitch, cTime))
-        local allDis = math.sqrt(tgVec.x ^ 2 + tgVec.y ^ 2 + tgVec.z ^ 2)
-        local tmpVec = {
-            x = tgVec.x,
-            y = allDis * math.sin(math.rad(tmpPitch)),
-            z = tgVec.z
-        }
+            --commands.execAsync(("say tmpPitch=%0.4f, cTime=%0.4f"):format(tmpPitch, cTime))
+            --commands.execAsync(("say xDis=%0.2f, y=%0.2f, tmpPitch=%0.2f, cTime=%0.2f"):format(xDis, tgVec.y, tmpPitch, cTime))
+            local allDis = math.sqrt(tgVec.x ^ 2 + tgVec.y ^ 2 + tgVec.z ^ 2)
+            tmpVec = {
+                x = tgVec.x,
+                y = allDis * math.sin(math.rad(tmpPitch)),
+                z = tgVec.z
+            }
+        else
+            tmpVec = tgVec
+        end
 
         local conjQ = getConjQuat(ship.getQuaternion())
 
@@ -468,7 +498,7 @@ local runCt = function()
         else
             tgPitch = resetAngelRange(cannon.pitch - tgPitch)
         end
-        
+
         tgPitch = math.abs(tgPitch) > 0.01875 and tgPitch or 0
         local pitchSpeed = math.floor(tgPitch * ANGLE_TO_SPEED / 2 + 0.5)
         pitchSpeed = math.abs(pitchSpeed) < properties.max_rotate_speed and pitchSpeed or
