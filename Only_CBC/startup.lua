@@ -39,6 +39,7 @@ system.reset = function()
         cannonOffset = { x = 0, y = 3, z = 0 },
         minPitchAngle = -45,
         face = "west",
+        cannonFace = "west",
         password = "123456",
         InvertYaw = false,
         InvertPitch = false,
@@ -240,17 +241,19 @@ local getY2 = function(t, y0, pitch)
     local Vy = v0 * sinA
 
     local index = 1
-    local last = 0
+    local lastY0, lastVy = 0, 0
     while index < t do
+        lastY0 = y0
+        lastVy = Vy
         y0 = y0 + Vy
         Vy = 0.99 * Vy - 0.05
         index = index + 1
-        last = y0
-        last = t
     end
 
     index = index - 1
-    for i = last, t, 0.1 do
+    y0 = lastY0
+    Vy = lastVy
+    for i = index, t, 0.1 do
         Vy = 0.999 * Vy
         y0 = y0 + Vy
     end
@@ -481,7 +484,7 @@ local runCt = function()
             local xp = math.sin(math.rad(cannon.CannonYaw)) * cosP
             local zp = math.cos(math.rad(cannon.CannonYaw)) * cosP
             local yp = math.sin(math.rad(cannon.CannonPitch))
-            local newP = RotateVectorByQuat(quatList[properties.face], { x = xp, y = yp, z = zp })
+            local newP = RotateVectorByQuat(quatList[properties.cannonFace], { x = xp, y = yp, z = zp })
             cannon.yaw = math.deg(math.atan2(newP.z, newP.x))
             cannon.pitch = math.deg(math.asin(yp))
         else
@@ -738,7 +741,8 @@ local runTerm = function()
         lock_yaw_face = newSelectBox(properties, "lock_yaw_face", 2, 27, 12, "south", "west", "north", "east"),
         InvertYaw = newSelectBox(properties, "InvertYaw", 1, 41, 13, false, true),
         InvertPitch = newSelectBox(properties, "InvertPitch", 1, 15, 13, false, true),
-        switchGear = newSelectBox(properties, "switchGear", 2, 12, 15, false, true),
+        switchGear = newSelectBox(properties, "switchGear", 2, 14, 14, false, true),
+        cannonFace = newSelectBox(properties, "cannonFace", 2, 14, 15, "south", "west", "north", "east"),
     }
 
     local sliderTb = {
@@ -789,8 +793,10 @@ local runTerm = function()
                 term.setCursorPos(30, 13)
                 term.write("InvertYaw: ")
 
+                term.setCursorPos(2, 14)
+                term.write("switchGear:")
                 term.setCursorPos(2, 15)
-                term.write("switchGear")
+                term.write("CannonFace:")
 
                 term.setCursorPos(2, 17)
                 term.write("cannonName: ")
