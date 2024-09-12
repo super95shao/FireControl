@@ -123,6 +123,13 @@ local getConjQuat = function(q)
     }
 end
 
+local quatList = {
+    west  = { w = -1, x = 0, y = 0, z = 0 },
+    south = { w = -0.70710678118654752440084436210485, x = 0, y = -0.70710678118654752440084436210485, z = 0 },
+    east  = { w = 0, x = 0, y = -1, z = 0 },
+    north = { w = -0.70710678118654752440084436210485, x = 0, y = 0.70710678118654752440084436210485, z = 0 },
+}
+
 local copysign = function(num1, num2)
     num1 = math.abs(num1)
     num1 = num2 > 0 and num1 or -num1
@@ -239,23 +246,11 @@ local getY2 = function(t, y0, pitch)
     local Vy = v0 * sinA
 
     local index = 1
-    local lastY0, lastVy = 0, 0
     while index < t do
-        lastY0 = y0
-        lastVy = Vy
         y0 = y0 + Vy
         Vy = 0.99 * Vy - 0.05
         index = index + 1
     end
-
-    index = index - 1
-    y0 = lastY0
-    Vy = lastVy
-    for i = index, t, 0.1 do
-        Vy = 0.999 * Vy
-        y0 = y0 + Vy
-    end
-
     return y0
 end
 
@@ -322,14 +317,6 @@ end
 local runListener = function()
     parallel.waitForAll(cannonNet, getPitch)
 end
-
-
-local quatList = {
-    west  = { w = -1, x = 0, y = 0, z = 0 },
-    south = { w = -0.70710678118654752440084436210485, x = 0, y = -0.70710678118654752440084436210485, z = 0 },
-    east  = { w = 0, x = 0, y = -1, z = 0 },
-    north = { w = -0.70710678118654752440084436210485, x = 0, y = 0.70710678118654752440084436210485, z = 0 },
-}
 
 local cannonUtil = {
     pos = { x = 0, y = 0, z = 0 },
@@ -433,32 +420,37 @@ local runCt = function()
 
         local xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
         local mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
-        local tmpPitch = pitchList[mid]
+        local tmpPitch, tmpVec
 
-        if controlCenter.mode > 2 then
-            --commands.execAsync(("say cTime=%0.1f"):format(cTime))
-            cTime = cTime + 10
-            target.x = target.x + controlCenter.velocity.x * cTime
-            target.y = target.y + controlCenter.velocity.y * cTime
-            target.z = target.z + controlCenter.velocity.z * cTime
-            tgVec = {
-                x = target.x - cannonPos.x,
-                y = target.y - cannonPos.y,
-                z = target.z - cannonPos.z
-            }
-            xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
-            mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
+        if cTime > 10 then
             tmpPitch = pitchList[mid]
-        end
+            if controlCenter.mode > 2 then
+                --commands.execAsync(("say cTime=%0.1f"):format(cTime))
+                cTime = cTime + 10
+                target.x = target.x + controlCenter.velocity.x * cTime
+                target.y = target.y + controlCenter.velocity.y * cTime
+                target.z = target.z + controlCenter.velocity.z * cTime
+                tgVec = {
+                    x = target.x - cannonPos.x,
+                    y = target.y - cannonPos.y,
+                    z = target.z - cannonPos.z
+                }
+                xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
+                mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
+                tmpPitch = pitchList[mid]
+            end
 
-        --commands.execAsync(("say tmpPitch=%0.4f, cTime=%0.4f"):format(tmpPitch, cTime))
-        --commands.execAsync(("say xDis=%0.2f, y=%0.2f, tmpPitch=%0.2f, cTime=%0.2f"):format(xDis, tgVec.y, tmpPitch, cTime))
-        local allDis = math.sqrt(tgVec.x ^ 2 + tgVec.y ^ 2 + tgVec.z ^ 2)
-        local tmpVec = {
-            x = tgVec.x,
-            y = allDis * math.sin(math.rad(tmpPitch)),
-            z = tgVec.z
-        }
+            --commands.execAsync(("say tmpPitch=%0.4f, cTime=%0.4f"):format(tmpPitch, cTime))
+            --commands.execAsync(("say xDis=%0.2f, y=%0.2f, tmpPitch=%0.2f, cTime=%0.2f"):format(xDis, tgVec.y, tmpPitch, cTime))
+            local allDis = math.sqrt(tgVec.x ^ 2 + tgVec.y ^ 2 + tgVec.z ^ 2)
+            tmpVec = {
+                x = tgVec.x,
+                y = allDis * math.sin(math.rad(tmpPitch)),
+                z = tgVec.z
+            }
+        else
+            tmpVec = tgVec
+        end
 
         local rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion())), tmpVec)
         --genParticle(cannonPos.x + tmpVec.x, cannonPos.y + tmpVec.y, cannonPos.z + tmpVec.z)
