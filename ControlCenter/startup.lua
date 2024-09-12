@@ -730,7 +730,7 @@ function absRadarButtons:RadarClick(x, y, button)
                 local px, py = 64 - tmpPos.x / scale, 56 - tmpPos.z / scale
                 v.clickDis = math.abs(x - px) + math.abs(y - py)
                 if group[self.group.index].mode == 3 or group[self.group.index].mode == 4 then
-                    if v.clickDis < minDis and tgName ~= ship.getName() then
+                    if v.clickDis < minDis then
                         minDis = v.clickDis
                         group[self.group.index].radarTarget = v
                     end
