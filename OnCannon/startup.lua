@@ -49,8 +49,8 @@ system.reset = function()
         velocity = "158",
         barrelLength = "8",
         forecast = "16",
-        P = "0.5",
-        D = "1",
+        P = "1",
+        D = "2",
     }
 end
 
@@ -67,9 +67,9 @@ end
 system.init()
 
 local gear = peripheral.find("Create_RotationSpeedController")
-local nbt_reader = peripheral.find("blockReader")
-if not nbt_reader then
-    printError("Need Advanced Periperals:block_reader!")
+local cannon = peripheral.find("cbc_cannon_mount")
+if not cannon then
+    printError("Need peripheral: cbc_cannon_mount")
     return
 end
 if not gear then
@@ -80,7 +80,7 @@ else
         redstone.setOutput(properties.power_on, false)
         redstone.setOutput(properties.power_on, true)
     end
-    sleep(0.1)
+    sleep(0.25)
 end
 
 
@@ -251,6 +251,7 @@ local getY2 = function(t, y0, pitch)
         Vy = 0.99 * Vy - 0.05
         index = index + 1
     end
+
     return y0
 end
 
@@ -303,19 +304,8 @@ local sendRequest = function()
     end
 end
 
-local cannonNet = function()
-    parallel.waitForAll(sendRequest, listener)
-end
-
-local cannon = { CannonPitch = 0, CannonYaw = 0 }
-local getPitch = function()
-    while true do
-        cannon = nbt_reader.getBlockData()
-    end
-end
-
 local runListener = function()
-    parallel.waitForAll(cannonNet, getPitch)
+    parallel.waitForAll(sendRequest, listener)
 end
 
 local cannonUtil = {
@@ -341,7 +331,6 @@ function cannonUtil:getAtt()
             z = self.pos.z - self.prePos.z,
         }
     end
-
 
     self.quat = quatMultiply(quatList[properties.face], ship.getQuaternion())
 end
@@ -394,6 +383,9 @@ local runCt = function()
         --genParticle(cannonPos.x, cannonPos.y, cannonPos.z)
 
         local target = controlCenter.tgPos
+        target.x = target.x + controlCenter.velocity.x * 10
+        target.y = target.y + controlCenter.velocity.y * 10
+        target.z = target.z + controlCenter.velocity.z * 10
         --commands.execAsync(("say x=%0.4f, y=%0.4f, z=%0.4f"):format(target.x, target.y, target.z))
         local tgVec = {
             x = target.x - cannonPos.x,
@@ -402,21 +394,7 @@ local runCt = function()
         }
         --genParticle(cannonPos.x, cannonPos.y, cannonPos.z)
 
-        local q = cannonUtil.quat
-
-        local pX = RotateVectorByQuat(q, { x = 1, y = 0, z = 0 })
-        local pY = RotateVectorByQuat(q, { x = 0, y = 1, z = 0 })
-        local pZ = RotateVectorByQuat(q, { x = 0, y = 0, z = -1 })
-        preQ.x = -preQ.x
-        preQ.y = -preQ.y
-        preQ.z = -preQ.z
-        local XPoint = RotateVectorByQuat(preQ, pX)
-        local ZPoint = RotateVectorByQuat(preQ, pZ)
-        local omega = {
-            x = math.deg(math.asin(ZPoint.y)),
-            z = math.deg(math.asin(XPoint.y)),
-            y = math.deg(math.atan2(-XPoint.z, XPoint.x))
-        }
+        local omega = RotateVectorByQuat(getConjQuat(ship.getQuaternion()), ship.getOmega())
 
         local xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
         local mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
@@ -426,7 +404,6 @@ local runCt = function()
             tmpPitch = pitchList[mid]
             if controlCenter.mode > 2 then
                 --commands.execAsync(("say cTime=%0.1f"):format(cTime))
-                cTime = cTime + 10
                 target.x = target.x + controlCenter.velocity.x * cTime
                 target.y = target.y + controlCenter.velocity.y * cTime
                 target.z = target.z + controlCenter.velocity.z * cTime
@@ -484,22 +461,20 @@ local runCt = function()
         ------self(pitch)-------
         local tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
 
-        --commands.execAsync(("say tgPitch=%d, CannonPitch=%d"):format(tgPitch, cannon.CannonPitch))
         tgPitch = tgPitch < properties.minPitchAngle and properties.minPitchAngle or tgPitch
 
+        local cannonPitch = cannon.getPitch()
         if properties.InvertPitch then
-            tgPitch = resetAngelRange(tgPitch - cannon.CannonPitch)
+            tgPitch = resetAngelRange(tgPitch - cannonPitch)
         else
-            tgPitch = resetAngelRange(cannon.CannonPitch - tgPitch)
+            tgPitch = resetAngelRange(cannonPitch - tgPitch)
         end
 
         tgPitch = math.abs(tgPitch) > 0.01875 and tgPitch or 0
-        local pSpeed = math.floor(tgPitch * ANGLE_TO_SPEED / 8 + 0.5)
+        local pSpeed = math.floor(tgPitch * ANGLE_TO_SPEED / 2 + 0.5)
         pSpeed = math.abs(pSpeed) < properties.max_rotate_speed and pSpeed or
             copysign(properties.max_rotate_speed, pSpeed)
-        --commands.execAsync(("say tgPitch=%0.2f, CannonPitch=%0.2f"):format(tgPitch, cannon.CannonPitch))
 
-        --commands.execAsync(("say yaw=%0.2f, pitch=%0.2f"):format(omega.y, cannon.CannonPitch))
         gear.setTargetSpeed(pSpeed)
         cannonUtil:setPreAtt()
     end
