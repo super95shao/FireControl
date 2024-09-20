@@ -68,9 +68,9 @@ local gears = { peripheral.find("Create_RotationSpeedController") }
 local yawGear = gears[1]
 local pitchGear = gears[2]
 
-local nbt_reader = peripheral.find("blockReader")
-if not nbt_reader then
-    printError("Need Advanced Periperals:block_reader!")
+local cannon = peripheral.find("cbc_cannon_mount")
+if not cannon then
+    printError("Need peripheral: cbc_cannon_mount")
     return
 end
 if not yawGear or not pitchGear then
@@ -328,21 +328,8 @@ local sendRequest = function()
     end
 end
 
-local cannonNet = function()
-    parallel.waitForAll(sendRequest, listener)
-end
-
-local cannon = { CannonPitch = 0, CannonYaw = 0, yaw = 180, pitch = 0 }
-local getPitch = function()
-    while true do
-        local tmp = nbt_reader.getBlockData()
-        cannon.CannonPitch = tmp.CannonPitch
-        cannon.CannonYaw = tmp.CannonYaw
-    end
-end
-
 local runListener = function()
-    parallel.waitForAll(cannonNet, getPitch)
+    parallel.waitForAll(sendRequest, listener)
 end
 
 local quatList = {
@@ -408,6 +395,8 @@ end
 ------------------------------------------
 
 local finalYaw, finalPit = 0, 0
+cannon.yaw = 180
+cannon.pitch = 0
 local runCt = function()
     while true do
         cannonUtil:getAtt()
@@ -418,6 +407,9 @@ local runCt = function()
         --genParticle(cannonPos.x, cannonPos.y, cannonPos.z)
 
         local target = controlCenter.tgPos
+        target.x = target.x + controlCenter.velocity.x * 10
+        target.y = target.y + controlCenter.velocity.y * 10
+        target.z = target.z + controlCenter.velocity.z * 10
         --commands.execAsync(("say x=%0.4f, y=%0.4f, z=%0.4f"):format(target.x, target.y, target.z))
         local tgVec = {
             x = target.x - cannonPos.x,
@@ -433,7 +425,6 @@ local runCt = function()
             tmpPitch = pitchList[mid]
             if controlCenter.mode > 2 then
                 --commands.execAsync(("say cTime=%0.1f"):format(cTime))
-                cTime = cTime + 10
                 target.x = target.x + controlCenter.velocity.x * cTime
                 target.y = target.y + controlCenter.velocity.y * cTime
                 target.z = target.z + controlCenter.velocity.z * cTime
@@ -491,7 +482,6 @@ local runCt = function()
         ------self(pitch)-------
         local tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
 
-        --commands.execAsync(("say tgPitch=%d, CannonPitch=%d"):format(tgPitch, cannon.CannonPitch))
         tgPitch = tgPitch < properties.minPitchAngle and properties.minPitchAngle or tgPitch
         if properties.InvertPitch then
             tgPitch = resetAngelRange(tgPitch - cannon.pitch)
@@ -503,17 +493,15 @@ local runCt = function()
         local pitchSpeed = math.floor(tgPitch * ANGLE_TO_SPEED / 2 + 0.5)
         pitchSpeed = math.abs(pitchSpeed) < properties.max_rotate_speed and pitchSpeed or
             copysign(properties.max_rotate_speed, pitchSpeed)
-
-        --commands.execAsync(("say tgPitch=%0.2f, CannonPitch=%0.2f"):format(tgPitch, cannon.CannonPitch))
-        --commands.execAsync(("say yaw=%0.2f, pitch=%0.2f"):format(omega.y, cannon.CannonPitch))
-
+        
+        local cannonPitch, cannonYaw = cannon.getPitch(), cannon.getYaw()
         sendToGear(yawSpeed, pitchSpeed)
         cannonUtil:setPreAtt()
         if yawSpeed == 0 and pitchSpeed == 0 then
-            local cosP = math.cos(math.rad(cannon.CannonPitch))
-            local xp = math.sin(math.rad(cannon.CannonYaw)) * cosP
-            local zp = math.cos(math.rad(cannon.CannonYaw)) * cosP
-            local yp = math.sin(math.rad(cannon.CannonPitch))
+            local cosP = math.cos(math.rad(cannonPitch))
+            local xp = math.sin(math.rad(cannonYaw)) * cosP
+            local zp = math.cos(math.rad(cannonYaw)) * cosP
+            local yp = math.sin(math.rad(cannonPitch))
             local newP = RotateVectorByQuat(quatList[properties.cannonFace], { x = xp, y = yp, z = zp })
             cannon.yaw = math.deg(math.atan2(newP.z, newP.x))
             cannon.pitch = math.deg(math.asin(yp))
