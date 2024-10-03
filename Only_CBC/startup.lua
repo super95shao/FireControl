@@ -34,8 +34,8 @@ system.reset = function()
         cannonName = "CBC",
         switchGear = false,
         controlCenterId = "-1",
-        power_on = "front", --开机信号
-        fire = "back",      --开火信号
+        power_on = "back", --开机信号
+        fire = "top",      --开火信号
         cannonOffset = { x = 0, y = 3, z = 0 },
         minPitchAngle = -45,
         face = "west",
@@ -49,6 +49,7 @@ system.reset = function()
         velocity = "158",
         barrelLength = "8",
         forecast = "16",
+        gravity = "0.05",
     }
 end
 
@@ -216,46 +217,11 @@ local getTime = function(dis, pitch)
     return result and result or 0
 end
 
-local timeInAir = function(y, pitch)
-    local sinA = math.sin(pitch)
-    local barrelLength = #properties.barrelLength == 0 and 0 or tonumber(properties.barrelLength)
-    barrelLength = barrelLength and barrelLength or 0
-    local v0 = #properties.velocity == 0 and 0 or tonumber(properties.velocity) / 20
-    v0 = v0 and v0 or 0
-
-    local y0 = barrelLength * sinA
-    local Vy = v0 * sinA
-    local t = 0
-    local t_below = 0
-    if y0 <= y then
-        while t < 10000 do
-            y0 = y0 + Vy
-            Vy = 0.99 * Vy - 0.05
-            t = t + 1
-            if y0 > y then
-                t_below = t - 1
-                break
-            end
-            if Vy < 0 then
-                return -1, -1
-            end
-        end
-    end
-
-    while t < 10000 do
-        y0 = y0 + Vy
-        Vy = 0.99 * Vy - 0.05
-        t = t + 1
-        if y0 <= y then
-            return t_below, t
-        end
-    end
-    return -1, -1
-end
-
 local lnD = ln(0.99)
 local getYcoord = function(t, y0, pitch)
     t = t - 1
+    local grav = #properties.gravity == 0 and 0 or tonumber(properties.gravity)
+    grav = grav and 0.05 or grav
     local sinA = math.sin(pitch)
     local dt = math.pow(0.99, t)
     local barrelLength = #properties.barrelLength == 0 and 0 or tonumber(properties.barrelLength)
@@ -263,12 +229,14 @@ local getYcoord = function(t, y0, pitch)
     y0 = barrelLength * sinA + y0
     local v0 = #properties.velocity == 0 and 0 or tonumber(properties.velocity) / 20
     local Vy = v0 * sinA
-    return (dt * Vy) / lnD - (-0.05 * dt) / (lnD * (1 - 0.99)) + (-0.05 * t) / (1 - 0.99) +
-        (-0.05 / (1 - 0.99) - Vy) / lnD + y0
+    return (dt * Vy) / lnD - (-grav * dt) / (lnD * (1 - 0.99)) + (-grav * t) / (1 - 0.99) +
+        (-grav / (1 - 0.99) - Vy) / lnD + y0
 end
 
 local getY2 = function(t, y0, pitch)
     if t > 10000 then return "out" end
+    local grav = #properties.gravity == 0 and 0 or tonumber(properties.gravity)
+    grav = grav and 0.05 or grav
     local sinA = math.sin(pitch)
     local barrelLength = #properties.barrelLength == 0 and 0 or tonumber(properties.barrelLength)
     barrelLength = barrelLength and barrelLength or 0
@@ -280,7 +248,7 @@ local getY2 = function(t, y0, pitch)
     local index = 1
     while index < t do
         y0 = y0 + Vy
-        Vy = 0.99 * Vy - 0.05
+        Vy = 0.99 * Vy - grav
         index = index + 1
     end
 
@@ -322,10 +290,11 @@ local listener = function()
 end
 
 local sendRequest = function()
+    local slug = ship and ship.getName() or nil
     while true do
         local controlCenterId = #properties.controlCenterId == 0 and 0 or tonumber(properties.controlCenterId)
         controlCenterId = controlCenterId and controlCenterId or 0
-        rednet.send(controlCenterId, { name = properties.cannonName, pw = properties.password }, request_protocol)
+        rednet.send(controlCenterId, { name = properties.cannonName, pw = properties.password, slug = slug }, request_protocol)
         sleep(1)
     end
 end
@@ -430,7 +399,7 @@ local runCt = function()
             local xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
             local mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
             local tmpPitch, tmpVec
-            if cTime > 10 then
+            if cTime > 5 then
                 tmpPitch = pitchList[mid]
                 if controlCenter.mode > 2 then
                     --commands.execAsync(("say cTime=%0.1f"):format(cTime))
@@ -774,6 +743,7 @@ local runTerm = function()
         cannonOffset_x = newTextField(properties.cannonOffset, "x", 18, 6),
         cannonOffset_y = newTextField(properties.cannonOffset, "y", 24, 6),
         cannonOffset_z = newTextField(properties.cannonOffset, "z", 30, 6),
+        --gravity = newTextField(properties, "gravity", 45, 6),
         forecast = newTextField(properties, "forecast", 46, 2),
         cannonName = newTextField(properties, "cannonName", 14, 17),
         controlCenterId = newTextField(properties, "controlCenterId", 19, 18),
@@ -789,6 +759,7 @@ local runTerm = function()
     fieldTb.cannonOffset_x.len = 3
     fieldTb.cannonOffset_y.len = 3
     fieldTb.cannonOffset_z.len = 3
+    --fieldTb.gravity.len = 6
     fieldTb.forecast.len = 5
     local selectBoxTb = {
         power_on = newSelectBox(properties, "power_on", 2, 12, 3, "top", "bottom", "left", "right", "front", "back"),
@@ -806,6 +777,7 @@ local runTerm = function()
         max_rotate_speed = newSlider(properties, "max_rotate_speed", 0, 256, 49, 2, 11),
     }
 
+    local alarm_id = os.setAlarm(os.time() + 0.05)
     local alarm_flag = false
     term.clear()
     term.setCursorPos(15, 8)
@@ -833,6 +805,8 @@ local runTerm = function()
 
                 term.setCursorPos(2, 6)
                 term.write("CannonOffset: x=    y=    z=")
+                --term.setCursorPos(36, 6)
+                --term.write("gravity: ")
 
                 term.setCursorPos(2, 8)
                 term.write("MinPitchAngle: ")
