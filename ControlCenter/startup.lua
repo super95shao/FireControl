@@ -2,20 +2,25 @@ local goggle_link_port = peripheral.find("goggle_link_port")
 
 local system, properties, linkedCannons, scanner, rayCaster
 local linkedgoggles = {}
-local modList = { "HMS", "POINT", "SHIP", "ANTIAIRCRAFT", "PLAYER", "MONSTER", "ENTITY" }
+local modList = {"HMS", "POINT", "SHIP", "PLAYER", "MONSTER", "ENTITY"}
 local protocol, request_protocol = "CBCNetWork", "CBCcenter"
 local group = {}
 for i = 1, 10, 1 do
     group[i] = {
         name = "group" .. i,
         mode = 2,
-        pos = { x = 0, y = 0, z = 0 },
+        pos = {
+            x = 0,
+            y = 0,
+            z = 0
+        },
         HmsUser = nil,
         HmsMode = 1,
-        radarTarget = nil,
+        radarTargets = {},
         fire = false,
         fireCd = 0,
-        autoFire = false
+        autoFire = false,
+        autoSelect = false,
     }
 end
 
@@ -27,7 +32,7 @@ linkedCannons = {}
 
 system = {
     fileName = "dat",
-    file = nil,
+    file = nil
 }
 
 system.init = function()
@@ -57,7 +62,8 @@ system.reset = function()
         fontColor = 0xFFFFFF,
         bgColor = 0x000000,
         lockColor = 0x666666,
-        face = "west",
+        face = "south",
+        whiteList = {}
     }
 end
 
@@ -74,10 +80,30 @@ end
 system.init()
 
 local quatList = {
-    west  = { w = -1, x = 0, y = 0, z = 0 },
-    south = { w = -0.70710678118654752440084436210485, x = 0, y = -0.70710678118654752440084436210485, z = 0 },
-    east  = { w = 0, x = 0, y = -1, z = 0 },
-    north = { w = -0.70710678118654752440084436210485, x = 0, y = 0.70710678118654752440084436210485, z = 0 },
+    west = {
+        w = -1,
+        x = 0,
+        y = 0,
+        z = 0
+    },
+    south = {
+        w = -0.70710678118654752440084436210485,
+        x = 0,
+        y = -0.70710678118654752440084436210485,
+        z = 0
+    },
+    east = {
+        w = 0,
+        x = 0,
+        y = -1,
+        z = 0
+    },
+    north = {
+        w = -0.70710678118654752440084436210485,
+        x = 0,
+        y = 0.70710678118654752440084436210485,
+        z = 0
+    }
 }
 
 local quatMultiply = function(q1, q2)
@@ -127,7 +153,7 @@ local getConjQuat = function(q)
         w = q.w,
         x = -q.x,
         y = -q.y,
-        z = -q.z,
+        z = -q.z
     }
 end
 
@@ -161,7 +187,12 @@ rayCaster.run = function(start, v3Speed, range, showParticle)
             genParticle(vec.x, vec.y, vec.z)
         end
     end
-    return { x = vec.x, y = vec.y, z = vec.z, name = rayCaster.block }
+    return {
+        x = vec.x,
+        y = vec.y,
+        z = vec.z,
+        name = rayCaster.block
+    }
 end
 
 scanner = {
@@ -171,27 +202,16 @@ scanner = {
     preEntities = {},
     vsShips = {},
     monsters = {},
-    MONSTER = {
-        "minecraft:zombie",
-        "minecraft:spider",
-        "minecraft:creeper",
-        "minecraft:cave_spider",
-        "minecraft:husk",
-        "minecraft:skeleton",
-        "minecraft:wither_skeleton",
-        "minecraft:guardian",
-        "minecraft:phantom",
-        "minecraft:pillager",
-        "minecraft:ravager",
-        "minecraft:vex",
-        "minecraft:warden",
-        "minecraft:vindicator",
-        "minecraft:witch"
-    }
+    MONSTER = {"minecraft:zombie", "minecraft:spider", "minecraft:creeper", "minecraft:cave_spider", "minecraft:husk",
+               "minecraft:skeleton", "minecraft:wither_skeleton", "minecraft:guardian", "minecraft:phantom",
+               "minecraft:pillager", "minecraft:ravager", "minecraft:vex", "minecraft:warden", "minecraft:vindicator",
+               "minecraft:witch", "minecraft:ender_dragon"}
 }
 
 scanner.getShips = function()
-    if not coordinate then return end
+    if not coordinate then
+        return
+    end
     local ships = coordinate.getShips(2500)
 
     for k, v in pairs(scanner.vsShips) do
@@ -206,7 +226,11 @@ scanner.getShips = function()
                 z = v.z - scanner.vsShips[v.slug].z
             }
         else
-            v.velocity = { x = 0, y = 0, z = 0 }
+            v.velocity = {
+                x = 0,
+                y = 0,
+                z = 0
+            }
         end
         v.flag = true
         scanner.vsShips[v.slug] = v
@@ -220,7 +244,9 @@ scanner.getShips = function()
 end
 
 scanner.scanEntity = function()
-    if not coordinate then return end
+    if not coordinate then
+        return
+    end
     local ett = coordinate.getEntities(-1)
     scanner.entities = ett
     if ett ~= nil then
@@ -239,7 +265,11 @@ scanner.scanEntity = function()
                     z = v.z - scanner.preEntities[v.uuid].z
                 }
             else
-                v.velocity = { x = 0, y = 0, z = 0 }
+                v.velocity = {
+                    x = 0,
+                    y = 0,
+                    z = 0
+                }
             end
             if v.isPlayer then
                 v.flag = true
@@ -278,7 +308,7 @@ scanner.run = function()
         scanner.getShips()
         scanner.scanEntity()
 
-        for k, v in pairs(tm_monitors.list) do --刷新所有处于雷达界面的窗口
+        for k, v in pairs(tm_monitors.list) do -- 刷新所有处于雷达界面的窗口
             for k2, v2 in pairs(v.windows) do
                 if group[v2.group.index].mode > 2 then
                     v2:refresh()
@@ -290,6 +320,9 @@ scanner.run = function()
         for _, g in pairs(group) do
             if g.fireCd > 0 then
                 g.fireCd = g.fireCd - 1
+                if g.fireCd == 1 then
+                    g.fire = false
+                end
             elseif g.fireCd < 1 then
                 if g.autoFire then
                     g.fire = true
@@ -300,48 +333,93 @@ scanner.run = function()
             end
         end
 
-        for _, ca in pairs(linkedCannons) do
-            if ca.group then
-                if group[ca.group].mode > 2 and group[ca.group].radarTarget then
-                    if group[ca.group].mode == 3 or group[ca.group].mode == 4 then
-                        for k, v in pairs(scanner.vsShips) do
-                            if v.slug and v.slug == group[ca.group].radarTarget.slug then
-                                rednet.send(ca.id,
-                                    {
-                                        tgPos = v,
-                                        velocity = v.velocity,
-                                        mode = group[ca.group].mode,
-                                        fire = group[ca.group].fire
-                                    }, protocol)
-                                break
-                            end
-                        end
-                    elseif group[ca.group].radarTarget then
-                        local kk
-                        if group[ca.group].mode == 5 then
-                            kk = "playerList"
-                        elseif group[ca.group].mode == 6 then
-                            kk = "monsters"
-                        elseif group[ca.group].mode == 7 then
-                            kk = "entities"
-                        end
-                        for k, v in pairs(scanner[kk]) do
-                            if v.uuid and v.uuid == group[ca.group].radarTarget.uuid then
-                                rednet.send(ca.id,
-                                    {
-                                        tgPos = v,
-                                        velocity = v.velocity,
-                                        mode = group[ca.group].mode,
-                                        fire = group[ca.group].fire
-                                    }, protocol)
-                                break
-                            end
+        local onVsShip = ship
+        local selfPos = onVsShip and ship.getWorldspacePosition() or coordinate.getAbsoluteCoordinates()
+    
+        local quat = {}
+        if onVsShip then
+            quat = quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion()))
+        end
+        
+        for k, v in pairs(group) do
+            if v.autoSelect then
+                local kk1
+                if v.mode == 3 then kk1 = "vsShips"
+                elseif v.mode == 4 then kk1 = "playerList"
+                elseif v.mode == 5 then kk1 = "monsters"
+                elseif v.mode == 6 then kk1 = "entities"
+                end
+
+                local kk2 = kk1 == "vsShips" and "slug" or "uuid"
+
+                v.radarTargets = {}
+                for k2, v2 in pairs(scanner[kk1]) do
+                    local contains = false
+                    for v3, v3 in pairs(properties.whiteList) do
+                        if v3 == v2[kk2] then
+                            contains = true
+                            break
                         end
                     end
-                    --
+
+                    if not contains then
+                        local posV = {
+                            x = v2.x - selfPos.x,
+                            y = v2.y - selfPos.y,
+                            z = v2.z - selfPos.z,
+                        }
+                        v2.dis = math.sqrt(posV.x ^ 2 + posV.y ^ 2 + posV.z ^ 2)
+                        table.insert(v.radarTargets, v2)
+                    end
+                end
+
+                table.sort(v.radarTargets, function(a, b) return a.dis < b.dis end)
+                local len = 0
+                for _, ca in pairs(linkedCannons) do
+                    if ca.group and group[ca.group].name == v.name then
+                        len = len + 1
+                    end
+                end
+
+                local newList = {}
+                for i = 1, len, 1 do
+                    if v.radarTargets[i] then
+                        table.insert(newList, v.radarTargets[i])
+                    else
+                        break
+                    end
+                end
+
+                v.radarTargets = newList
+
+                local index = 1
+                for _, ca in pairs(linkedCannons) do
+                    if ca.group and group[ca.group].name == v.name then
+                        rednet.send(ca.id, {
+                            tgPos = v.radarTargets[index],
+                            velocity = v.radarTargets[index].velocity,
+                            mode = group[ca.group].mode,
+                            fire = group[ca.group].fire
+                        }, protocol)
+                        index = index + 1
+                    end
+                end
+            else
+                if v.radarTargets[1] then
+                    for _, ca in pairs(linkedCannons) do
+                        if ca.group then
+                            rednet.send(ca.id, {
+                                tgPos = v.radarTargets[1],
+                                velocity = v.radarTargets[1].velocity,
+                                mode = group[ca.group].mode,
+                                fire = group[ca.group].fire
+                            }, protocol)
+                        end
+                    end
                 end
             end
         end
+
         sleep(0.05)
     end
 end
@@ -387,7 +465,9 @@ function absTextSelectBox:refresh()
     self.drawW.drawText(3, 1, self.name)
     local index = 1 + (self.page - 1) * 6
     for i = index, #self.list, 1 do
-        if i >= index + 6 then break end
+        if i >= index + 6 then
+            break
+        end
         local str = self.list[i].name
         if #str > 10 then
             str = string.sub(str, 1, 10)
@@ -444,7 +524,11 @@ function absModeSwitchBox:click(x, y, button)
 end
 
 local absCoordInputWindow = {
-    tmpPos = { x = "0", y = "0", z = "0" }
+    tmpPos = {
+        x = "0",
+        y = "0",
+        z = "0"
+    }
 }
 
 function absCoordInputWindow:refresh()
@@ -508,7 +592,9 @@ function absCoordInputWindow:click(x, y, button)
                 end
 
                 local result = string.sub(self.tmpPos.x, 1, index - 1) .. n .. string.sub(self.tmpPos.x, index + 1, 8)
-                if group[self.group.index].pos.x < 0 then result = "-" .. result end
+                if group[self.group.index].pos.x < 0 then
+                    result = "-" .. result
+                end
                 group[self.group.index].pos.x = tonumber(result)
             else
                 group[self.group.index].pos.x = -group[self.group.index].pos.x
@@ -522,7 +608,9 @@ function absCoordInputWindow:click(x, y, button)
                     n = n - 1 < 0 and 9 or n - 1
                 end
                 local result = string.sub(self.tmpPos.y, 1, index - 1) .. n .. string.sub(self.tmpPos.y, index + 1, 8)
-                if group[self.group.index].pos.y < 0 then result = "-" .. result end
+                if group[self.group.index].pos.y < 0 then
+                    result = "-" .. result
+                end
                 group[self.group.index].pos.y = tonumber(result)
             else
                 group[self.group.index].pos.y = -group[self.group.index].pos.y
@@ -536,7 +624,9 @@ function absCoordInputWindow:click(x, y, button)
                     n = n - 1 < 0 and 9 or n - 1
                 end
                 local result = string.sub(self.tmpPos.z, 1, index - 1) .. n .. string.sub(self.tmpPos.z, index + 1, 8)
-                if group[self.group.index].pos.z < 0 then result = "-" .. result end
+                if group[self.group.index].pos.z < 0 then
+                    result = "-" .. result
+                end
                 group[self.group.index].pos.z = tonumber(result)
             else
                 group[self.group.index].pos.z = -group[self.group.index].pos.z
@@ -547,7 +637,7 @@ end
 
 local absHmsSelectWindow = {
     xStart = 25,
-    yStart = 9,
+    yStart = 9
 }
 
 function absHmsSelectWindow:refresh()
@@ -567,7 +657,9 @@ function absHmsSelectWindow:refresh()
     end
 
     for k, v in pairs(tgtb) do
-        if index > 10 then break end
+        if index > 10 then
+            break
+        end
 
         local tgName, str
         if v.info then
@@ -638,7 +730,7 @@ function absHmsSelectWindow:click(x, y, button)
 end
 
 local absRadarButtons = {
-    range = 128,
+    range = 128
 }
 
 function absRadarButtons:refreshRadar()
@@ -651,6 +743,8 @@ function absRadarButtons:refreshRadar()
     local quat = {}
     if onVsShip then
         quat = quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion()))
+    else
+        quat = quatList[properties.face]
     end
 
     local scale = self.range / 64
@@ -658,29 +752,43 @@ function absRadarButtons:refreshRadar()
         local tmpPos = {
             x = v.x - selfPos.x,
             y = v.y - selfPos.y,
-            z = v.z - selfPos.z,
+            z = v.z - selfPos.z
         }
-        if onVsShip then
-            tmpPos = RotateVectorByQuat(quat, tmpPos)
-        end
+        
+        tmpPos = RotateVectorByQuat(quat, tmpPos)
+
         local x, y = 64 - tmpPos.x / scale, 56 - tmpPos.z / scale
         if (x > 2 and x < 127) and (y > 2 and y < 111) then
-            local target = group[self.group.index].radarTarget
             local yDis = 128 + tmpPos.y * 2
             yDis = yDis < 6 and 6 or yDis > 255 and 255 or yDis
-            local yColor = tonumber(string.format("%x%x00", yDis, yDis), 16)
-            if group[self.group.index].mode == 3 or group[self.group.index].mode == 4 then
-                if target and target.slug == v.slug then
-                    self.drawW.filledRectangle(x - 1, y - 1, 5, 5, properties.targetColor)
-                else
-                    self.drawW.filledRectangle(x, y, 2, 2, yColor)
+            local yColor = tonumber(string.format("%x%xFF", yDis, yDis), 16)
+
+            local kkey = group[self.group.index].mode == 3 and "slug" or "uuid"
+
+            local contains = false
+            local wl = false
+            for k2, v2 in pairs(properties.whiteList) do
+                if v2 == v[kkey] then
+                    wl = true
+                    break
                 end
+            end
+
+            if not wl then
+                for k2, v2 in pairs(group[self.group.index].radarTargets) do
+                    if v2[kkey] == v[kkey] then
+                        contains = true
+                        break
+                    end
+                end
+            end
+            
+            if wl then
+                self.drawW.filledRectangle(x, y, 3, 3, 0x66FF66)
+            elseif contains then
+                self.drawW.filledRectangle(x - 1, y - 1, 5, 5, properties.targetColor)
             else
-                if target and target.uuid == v.uuid then
-                    self.drawW.filledRectangle(x - 1, y - 1, 5, 5, properties.targetColor)
-                else
-                    self.drawW.filledRectangle(x, y, 2, 2, yColor)
-                end
+                self.drawW.filledRectangle(x, y, 2, 2, yColor)
             end
         end
     end
@@ -691,6 +799,11 @@ function absRadarButtons:refreshRadar()
     self.drawW.rectangle(4, 4, 5, 5, fireColor)
     self.drawW.line(6, 3, 6, 9, fireColor)
     self.drawW.line(3, 6, 9, 6, fireColor)
+    if group[self.group.index].autoSelect then
+        self.drawW.drawText(12, 3, "A", 0xFF0000)
+    else
+        self.drawW.drawText(12, 3, "N", 0x444444)
+    end
 
     self.drawW.drawText(103, 112, tostring(self.range), 0xFFFFFF)
     self.drawW.filledRectangle(3, 112, 99, 8, 0x444444)
@@ -701,12 +814,19 @@ end
 
 function absRadarButtons:RadarClick(x, y, button)
     if y <= 110 then
-        if x < 10 and y < 9 then
+        if x < 18 and y < 9 then
             if x <= 3 and y <= 2 then
                 group[self.group.index].autoFire = not group[self.group.index].autoFire
             end
-            group[self.group.index].fire = true
-            group[self.group.index].fireCd = 10
+            if x < 10 then
+                group[self.group.index].fire = true
+                group[self.group.index].fireCd = 10
+            else
+                group[self.group.index].autoSelect = not group[self.group.index].autoSelect
+                if not group[self.group.index].autoSelect then
+                    group[self.group.index].radarTargets = {}
+                end
+            end
         else
             local onVsShip = ship
             local selfPos = onVsShip and ship.getWorldspacePosition() or coordinate.getAbsoluteCoordinates()
@@ -715,39 +835,64 @@ function absRadarButtons:RadarClick(x, y, button)
             if onVsShip then
                 quat = quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion()))
                 tgName = ship.getName()
+            else
+                quat = quatList[properties.face]
             end
             local scale = self.range / 64
             local minDis = 128
-            for k, v in pairs(self.tgTb[self.tgK]) do
-                local tmpPos = {
-                    x = v.x - selfPos.x,
-                    y = v.y - selfPos.y,
-                    z = v.z - selfPos.z,
-                }
-                if onVsShip then
+
+            if button == 1 or not group[self.group.index].autoSelect then
+                local target
+                for k, v in pairs(self.tgTb[self.tgK]) do
+                    local tmpPos = {
+                        x = v.x - selfPos.x,
+                        y = v.y - selfPos.y,
+                        z = v.z - selfPos.z
+                    }
                     tmpPos = RotateVectorByQuat(quat, tmpPos)
+                    local px, py = 64 - tmpPos.x / scale, 56 - tmpPos.z / scale
+                    v.clickDis = math.abs(x - px) + math.abs(y - py)
+                    if group[self.group.index].mode > 2 then
+                        if v.clickDis < minDis then
+                            minDis = v.clickDis
+                            target = v
+                        end
+                    end
                 end
-                local px, py = 64 - tmpPos.x / scale, 56 - tmpPos.z / scale
-                v.clickDis = math.abs(x - px) + math.abs(y - py)
-                if group[self.group.index].mode == 3 or group[self.group.index].mode == 4 then
-                    if v.clickDis < minDis then
-                        minDis = v.clickDis
-                        group[self.group.index].radarTarget = v
+    
+                local kk1 = group[self.group.index].mode == 3 and "slug" or "uuid"
+
+                if button == 1 then
+                    local val = target[kk1]
+                    local inWl = false
+                    local iii = 0
+                    for i = 1, #properties.whiteList, 1 do
+                        iii = i
+                        if properties.whiteList[i] == val then
+                            inWl = true
+                            break
+                        end
+                    end
+
+                    if inWl then
+                        table.remove(properties.whiteList, iii)
+                    else
+                        table.insert(properties.whiteList, val)
                     end
                 else
-                    if v.clickDis < minDis then
-                        minDis = v.clickDis
-                        group[self.group.index].radarTarget = v
+                    group[self.group.index].radarTargets[1] = target
+                end
+
+                for k, v in pairs(properties.whiteList) do
+                    if group[self.group.index].radarTargets[1] and v == group[self.group.index].radarTargets[1][kk1] then
+                        group[self.group.index].radarTargets[1] = nil
+                        break
                     end
                 end
-            end
-
-            --commands.execAsync(("say name=%s"):format(group[self.group.index].radarTarget.slug))
-            --commands.execAsync(("say y=%d"):format(group[self.group.index].radarTarget.y))
-            --commands.execAsync(("say %s"):format(group[self.group.index].radarTarget.dimension))
-
-            if group[self.group.index].radarTarget and group[self.group.index].radarTarget.clickDis > 5 then
-                group[self.group.index].radarTarget = nil
+    
+                if group[self.group.index].radarTargets[1] and group[self.group.index].radarTargets[1].clickDis > 5 then
+                    group[self.group.index].radarTargets[1] = nil
+                end
             end
         end
     elseif y > 110 and x <= 100 then
@@ -756,7 +901,9 @@ function absRadarButtons:RadarClick(x, y, button)
     end
 end
 
-local absShipRadarWindow = setmetatable({}, { __index = absRadarButtons })
+local absShipRadarWindow = setmetatable({}, {
+    __index = absRadarButtons
+})
 
 function absShipRadarWindow:refresh()
     self.drawW.fill()
@@ -772,90 +919,82 @@ local absWindow = {}
 
 function absWindow:init()
     self.windows = {}
-    self.windows.groupList = setmetatable(
-        {
-            list = group,
-            mode = "index",
-            name = "  GROUP",
-            drawW = self.drawW.createWindow(1, 1, 64, 64),
-            group = self.group
-        },
-        { __index = absTextSelectBox })
-    self.windows.cannonList = setmetatable(
-        {
-            list = linkedCannons,
-            mode = "switch",
-            name = "  CANNON",
-            drawW = self.drawW.createWindow(1, 65, 64, 64),
-            group = self.group
-        },
-        { __index = absTextSelectBox })
-    self.windows.modeSwitch = setmetatable(
-        {
-            drawW = self.drawW.createWindow(65, 1, 128, 8),
-            group = self.group
-        },
-        { __index = absModeSwitchBox }
-    )
-    self.windows.pointInput = setmetatable(
-        {
-            drawW = self.drawW.createWindow(65, 8, 128, 120),
-            group = self.group
-        },
-        { __index = absCoordInputWindow }
-    )
-    self.windows.hmsWindow = setmetatable(
-        {
-            drawW = self.drawW.createWindow(65, 8, 128, 120),
-            group = self.group
-        },
-        { __index = absHmsSelectWindow }
-    )
-    self.windows.shipRadar = setmetatable(
-        {
-            drawW = self.drawW.createWindow(65, 8, 128, 120),
-            group = self.group,
-            tgTb = scanner,
-            tgK = "vsShips"
-        },
-        { __index = absShipRadarWindow }
-    )
-    self.windows.antiairRadar = setmetatable(
-        {
-            drawW = self.drawW.createWindow(65, 8, 128, 120),
-            group = self.group,
-            tgTb = scanner,
-            tgK = "vsShips"
-        },
-        { __index = absShipRadarWindow }
-    )
-    self.windows.playerRadar = setmetatable(
-        {
-            drawW = self.drawW.createWindow(65, 8, 128, 120),
-            group = self.group,
-            tgTb = scanner,
-            tgK = "playerList"
-        },
-        { __index = absShipRadarWindow }
-    )
-    self.windows.monsterRadar = setmetatable(
-        {
-            drawW = self.drawW.createWindow(65, 8, 128, 120),
-            group = self.group,
-            tgTb = scanner,
-            tgK = "monsters"
-        },
-        { __index = absShipRadarWindow }
-    )
-    self.windows.entitiesRadar = setmetatable(
-        {
-            drawW = self.drawW.createWindow(65, 8, 128, 120),
-            group = self.group,
-            tgTb = scanner,
-            tgK = "entities"
-        },
-        { __index = absShipRadarWindow }
-    )
+    self.windows.groupList = setmetatable({
+        list = group,
+        mode = "index",
+        name = "  GROUP",
+        drawW = self.drawW.createWindow(1, 1, 64, 64),
+        group = self.group
+    }, {
+        __index = absTextSelectBox
+    })
+    self.windows.cannonList = setmetatable({
+        list = linkedCannons,
+        mode = "switch",
+        name = "  CANNON",
+        drawW = self.drawW.createWindow(1, 65, 64, 64),
+        group = self.group
+    }, {
+        __index = absTextSelectBox
+    })
+    self.windows.modeSwitch = setmetatable({
+        drawW = self.drawW.createWindow(65, 1, 128, 8),
+        group = self.group
+    }, {
+        __index = absModeSwitchBox
+    })
+    self.windows.pointInput = setmetatable({
+        drawW = self.drawW.createWindow(65, 8, 128, 120),
+        group = self.group
+    }, {
+        __index = absCoordInputWindow
+    })
+    self.windows.hmsWindow = setmetatable({
+        drawW = self.drawW.createWindow(65, 8, 128, 120),
+        group = self.group
+    }, {
+        __index = absHmsSelectWindow
+    })
+    self.windows.shipRadar = setmetatable({
+        drawW = self.drawW.createWindow(65, 8, 128, 120),
+        group = self.group,
+        tgTb = scanner,
+        tgK = "vsShips"
+    }, {
+        __index = absShipRadarWindow
+    })
+    self.windows.antiairRadar = setmetatable({
+        drawW = self.drawW.createWindow(65, 8, 128, 120),
+        group = self.group,
+        tgTb = scanner,
+        tgK = "vsShips"
+    }, {
+        __index = absShipRadarWindow
+    })
+    self.windows.playerRadar = setmetatable({
+        drawW = self.drawW.createWindow(65, 8, 128, 120),
+        group = self.group,
+        tgTb = scanner,
+        tgK = "playerList"
+    }, {
+        __index = absShipRadarWindow
+    })
+    self.windows.monsterRadar = setmetatable({
+        drawW = self.drawW.createWindow(65, 8, 128, 120),
+        group = self.group,
+        tgTb = scanner,
+        tgK = "monsters"
+    }, {
+        __index = absShipRadarWindow
+    })
+    self.windows.entitiesRadar = setmetatable({
+        drawW = self.drawW.createWindow(65, 8, 128, 120),
+        group = self.group,
+        tgTb = scanner,
+        tgK = "entities"
+    }, {
+        __index = absShipRadarWindow
+    })
 
     self:refresh()
 end
@@ -914,7 +1053,7 @@ end
 
 local absGpu = {
     gpu = nil,
-    windows = nil,
+    windows = nil
 }
 
 function absGpu:init()
@@ -927,9 +1066,16 @@ function absGpu:init()
     for i = 1, self.w / 192, 1 do
         for j = 1, self.h / 128, 1 do
             local x, y = (i - 1) * 192 + 1, (j - 1) * 128 + 1
-            local subWin = setmetatable(
-                { x = x, y = y, drawW = self.gpu.createWindow(x, y, 192, 128), group = { index = 1 } },
-                { __index = absWindow })
+            local subWin = setmetatable({
+                x = x,
+                y = y,
+                drawW = self.gpu.createWindow(x, y, 192, 128),
+                group = {
+                    index = 1
+                }
+            }, {
+                __index = absWindow
+            })
             subWin:init()
             table.insert(self.windows, subWin)
         end
@@ -970,9 +1116,13 @@ function absGpu:refresh()
 end
 
 function tm_monitors:getGpus()
-    local ps = { peripheral.find("tm_gpu") }
+    local ps = {peripheral.find("tm_gpu")}
     for k, v in pairs(ps) do
-        self.list[peripheral.getName(v)] = setmetatable({ gpu = v }, { __index = absGpu })
+        self.list[peripheral.getName(v)] = setmetatable({
+            gpu = v
+        }, {
+            __index = absGpu
+        })
     end
 end
 
@@ -995,7 +1145,7 @@ local getGoggles = function()
 
         if goggle_link_port then
             local connect = goggle_link_port.getConnected()
-            
+
             for k, v in pairs(connect) do
                 local infos = v.getInfo()
                 if infos.is_player then
@@ -1006,13 +1156,13 @@ local getGoggles = function()
                     linkedgoggles[k] = nil
                 end
             end
-            
+
         else
             linkedgoggles = emptyTb
         end
 
         local flag = false
-        for k, v in pairs(group) do --如果没有组在头瞄模式，不开启raycast
+        for k, v in pairs(group) do -- 如果没有组在头瞄模式，不开启raycast
             if modList[v.mode] == "HMS" then
                 flag = true
                 break
@@ -1023,41 +1173,40 @@ local getGoggles = function()
             for k, v in pairs(scanner.playerList) do
                 for _, ca in pairs(linkedCannons) do
                     if ca.group then
-                        if group[ca.group].mode == 1 and group[ca.group].HmsMode == 1 and group[ca.group].HmsUser == v.name then
+                        if group[ca.group].mode == 1 and group[ca.group].HmsMode == 1 and group[ca.group].HmsUser ==
+                            v.name then
                             if not v.targetPos then
                                 v.y = v.y + 1.75
-                                v.targetPos = rayCaster.run(
-                                    v,
-                                    {
-                                        x = v.raw_euler_x,
-                                        y = v.raw_euler_y,
-                                        z = v.raw_euler_z
-                                    },
-                                    dis,
-                                    false
-                                )
+                                v.targetPos = rayCaster.run(v, {
+                                    x = v.raw_euler_x,
+                                    y = v.raw_euler_y,
+                                    z = v.raw_euler_z
+                                }, dis, false)
                             end
-                            
-                            rednet.send(ca.id,
-                                {
-                                    tgPos = v.targetPos,
-                                    velocity = { x = 0, y = 0, z = 0 },
-                                    mode = 1,
-                                    fire = group[ca.group].fire
-                                }, protocol)
+
+                            rednet.send(ca.id, {
+                                tgPos = v.targetPos,
+                                velocity = {
+                                    x = 0,
+                                    y = 0,
+                                    z = 0
+                                },
+                                mode = 1,
+                                fire = group[ca.group].fire
+                            }, protocol)
                         end
                     end
                 end
                 v.targetPos = nil
             end
         end
-        
+
         if flag then
             local index = 0
             for k, v in pairs(linkedgoggles) do
                 local flag3 = false
                 for k2, v2 in pairs(group) do
-                    if v2.HmsUser == v.name then --只有选择头瞄了玩家，才开启raycast
+                    if v2.HmsUser == v.name then -- 只有选择头瞄了玩家，才开启raycast
                         flag3 = true
                         break
                     end
@@ -1067,7 +1216,11 @@ local getGoggles = function()
                     index = index + 1
                     local target = v.raycast(dis)
                     local hitpos = target.hit_pos
-                    v.targetPos = { x = 0, y = 0, z = 0 }
+                    v.targetPos = {
+                        x = 0,
+                        y = 0,
+                        z = 0
+                    }
                     if hitpos then
                         v.targetPos.x = hitpos[1]
                         v.targetPos.y = hitpos[2]
@@ -1084,14 +1237,18 @@ local getGoggles = function()
 
                     for _, ca in pairs(linkedCannons) do
                         if ca.group then
-                            if group[ca.group].mode == 1 and group[ca.group].HmsMode == 2 and group[ca.group].HmsUser == v.name then
-                                rednet.send(ca.id,
-                                    {
-                                        tgPos = v.targetPos,
-                                        velocity = { x = 0, y = 0, z = 0 },
-                                        mode = 1,
-                                        fire = group[ca.group].fire
-                                    }, protocol)
+                            if group[ca.group].mode == 1 and group[ca.group].HmsMode == 2 and group[ca.group].HmsUser ==
+                                v.name then
+                                rednet.send(ca.id, {
+                                    tgPos = v.targetPos,
+                                    velocity = {
+                                        x = 0,
+                                        y = 0,
+                                        z = 0
+                                    },
+                                    mode = 1,
+                                    fire = group[ca.group].fire
+                                }, protocol)
                             end
                         end
                     end
@@ -1112,7 +1269,7 @@ local termUtil = {
     cpY = 1,
 
     fieldTb = nil,
-    selectBoxTb = nil,
+    selectBoxTb = nil
 }
 
 local absTextField = {
@@ -1121,7 +1278,7 @@ local absTextField = {
     len = 15,
     text = "",
     textCorlor = "0",
-    backgroundColor = "8",
+    backgroundColor = "8"
 }
 
 function absTextField:paint()
@@ -1177,7 +1334,7 @@ function absTextField:inputKey(key)
     local field = tostring(self.key[self.value])
     local minXp = self.x
     local maxXp = minXp + #field
-    if key == 259 or key == 261 then --backSpace
+    if key == 259 or key == 261 then -- backSpace
         if xPos > minXp then
             termUtil.cpX = termUtil.cpX - 1
             if #field > 0 and termUtil.cpX > 1 then
@@ -1196,7 +1353,7 @@ function absTextField:inputKey(key)
             end
         end
     elseif key == 257 or key == 335 then
-        --print("enter")
+        -- print("enter")
     elseif key == 262 or key == 263 then
         if key == 262 then
             termUtil.cpX = termUtil.cpX + 1
@@ -1204,9 +1361,9 @@ function absTextField:inputKey(key)
             termUtil.cpX = termUtil.cpX - 1
         end
     elseif key == 264 or key == 258 then
-        --print("down")
+        -- print("down")
     elseif key == 265 then
-        --print("up")
+        -- print("up")
     end
     termUtil.cpX = termUtil.cpX > maxXp and maxXp or termUtil.cpX
     termUtil.cpX = termUtil.cpX < minXp and minXp or termUtil.cpX
@@ -1224,8 +1381,15 @@ function absTextField:click(x, y)
 end
 
 local newTextField = function(key, value, x, y)
-    return setmetatable({ key = key, value = value, type = type(key[value]), x = x, y = y },
-        { __index = absTextField })
+    return setmetatable({
+        key = key,
+        value = value,
+        type = type(key[value]),
+        x = x,
+        y = y
+    }, {
+        __index = absTextField
+    })
 end
 
 local absSelectBox = {
@@ -1269,17 +1433,25 @@ function absSelectBox:click(x, y)
 end
 
 local newSelectBox = function(key, value, interval, x, y, ...)
-    return setmetatable(
-        { key = key, value = value, interval = interval, x = x, y = y, type = type(key[value]), contents = { ... } },
-        { __index = absSelectBox })
+    return setmetatable({
+        key = key,
+        value = value,
+        interval = interval,
+        x = x,
+        y = y,
+        type = type(key[value]),
+        contents = {...}
+    }, {
+        __index = absSelectBox
+    })
 end
 
 function termUtil:init()
     self.fieldTb = {
-        password = newTextField(properties, "password", 12, 3),
+        password = newTextField(properties, "password", 12, 3)
     }
     self.selectBoxTb = {
-        face = newSelectBox(properties, "face", 2, 12, 5, "south", "west", "north", "east"),
+        face = newSelectBox(properties, "face", 2, 12, 5, "south", "west", "north", "east")
     }
 
     termUtil:refresh()
@@ -1300,7 +1472,7 @@ function termUtil:refresh()
 end
 
 peripheral.find("modem", rednet.open)
---{name = properties.cannonName, pw = properties.password}
+-- {name = properties.cannonName, pw = properties.password}
 local redNet = function()
     while true do
         local id, msg
@@ -1319,7 +1491,21 @@ local redNet = function()
             end
 
             if not flag then
-                table.insert(linkedCannons, { id = id, name = msg.name, beat = 3, mode = 2, group = nil })
+                table.insert(linkedCannons, {
+                    id = id,
+                    name = msg.name,
+                    beat = 3,
+                    mode = 2,
+                    group = nil
+                })
+
+                if not table.contains(properties.whiteList, msg.slug) then
+                    table.insert(properties.whiteList, msg.slug)
+                end
+                
+                if not table.contains(properties.whiteList, msg.yawSlug) then
+                    table.insert(properties.whiteList, msg.yawSlug)
+                end
             end
 
             for k, v in pairs(tm_monitors.list) do
@@ -1329,17 +1515,19 @@ local redNet = function()
                 end
                 v.gpu.sync()
             end
-            for _, ca in pairs(linkedCannons) do --如果是point模式顺便发送坐标
+            for _, ca in pairs(linkedCannons) do -- 如果是point模式顺便发送坐标
                 if ca.group then
                     if group[ca.group].mode == 2 then
-                        rednet.send(ca.id,
-                            {
-                                tgPos = group[ca.group].pos,
-                                velocity = { x = 0, y = 0, z = 0 },
-                                mode = 2,
-                                fire = group
-                                    [ca.group].fire
-                            }, protocol)
+                        rednet.send(ca.id, {
+                            tgPos = group[ca.group].pos,
+                            velocity = {
+                                x = 0,
+                                y = 0,
+                                z = 0
+                            },
+                            mode = 2,
+                            fire = group[ca.group].fire
+                        }, protocol)
                     end
                 end
             end
@@ -1351,7 +1539,9 @@ local beats = function()
     while true do
         local index = 1
         while true do
-            if index > #linkedCannons then break end
+            if index > #linkedCannons then
+                break
+            end
             linkedCannons[index].beat = linkedCannons[index].beat - 1
             if linkedCannons[index].beat < 0 then
                 table.remove(linkedCannons, index)
@@ -1365,19 +1555,19 @@ end
 
 local events = function()
     while true do
-        local eventData = { os.pullEvent() }
+        local eventData = {os.pullEvent()}
         local event = eventData[1]
 
         if event == "mouse_click" or event == "key" or event == "char" then
             if event == "mouse_click" then
                 term.setCursorBlink(true)
                 local x, y = eventData[3], eventData[4]
-                for k, v in pairs(termUtil.fieldTb) do --点击了输入框
+                for k, v in pairs(termUtil.fieldTb) do -- 点击了输入框
                     if y == v.y and x >= v.x and x <= v.x + v.len then
                         v:click(x, y)
                     end
                 end
-                for k, v in pairs(termUtil.selectBoxTb) do --点击了选择框
+                for k, v in pairs(termUtil.selectBoxTb) do -- 点击了选择框
                     if y == v.y then
                         v:click(x, y)
                     end
@@ -1398,7 +1588,7 @@ local events = function()
                 end
             end
 
-            --刷新数据到properties
+            -- 刷新数据到properties
             system.updatePersistentData()
             termUtil:refresh()
 
