@@ -277,6 +277,7 @@ end
 
 local parent = { quat = { w = 1, x = 0, y = 0, z = 0 } }
 local controlCenter = { tgPos = { x = 0, y = 0, z = 0 }, velocity = { x = 0, y = 0, z = 0 }, mode = 2, fire = false }
+local ct = 10
 local listener = function()
     local parentId = #properties.phyBearID == 0 and 0 or tonumber(properties.phyBearID)
     parentId = parentId and parentId or 0
@@ -288,18 +289,21 @@ local listener = function()
             parentId = #properties.phyBearID == 0 and 0 or tonumber(properties.phyBearID)
             parentId = parentId and parentId or 0
         elseif id == parentId then
-            parent.quat = msg
+            parent.quat = msg.quat
+            parent.slug = msg.slug
         elseif id == controlCenterId then
             controlCenter = msg
+            ct = 10
         end
     end
 end
 
 local sendRequest = function()
+    local slug = ship and ship.getName() or nil
     while true do
         local controlCenterId = #properties.controlCenterId == 0 and 0 or tonumber(properties.controlCenterId)
         controlCenterId = controlCenterId and controlCenterId or 0
-        rednet.send(controlCenterId, { name = properties.cannonName, pw = properties.password }, request_protocol)
+        rednet.send(controlCenterId, { name = properties.cannonName, pw = properties.password, slug = slug, yawSlug = parent.slug }, request_protocol)
         sleep(1)
     end
 end
@@ -341,23 +345,6 @@ function cannonUtil:setPreAtt()
 end
 
 function cannonUtil:getNextPos(t)
-    --local v2 = {
-    --    x = self.velocity.x / self.preVel.x,
-    --    y = self.velocity.y / self.preVel.y,
-    --    z = self.velocity.z / self.preVel.z,
-    --}
-    --local velocity = {
-    --    x = self.velocity.x,
-    --    y = self.velocity.y,
-    --    z = self.velocity.z,
-    --}
-    --
-    --for i = 1, t, 1 do
-    --    velocity.x = velocity.x * math.abs(v2.x)
-    --    velocity.y = velocity.y * math.abs(v2.y)
-    --    velocity.z = velocity.z * math.abs(v2.z)
-    --end
-
     return {
         x = self.pos.x + self.velocity.x * t,
         y = self.pos.y + self.velocity.y * t,
@@ -372,9 +359,11 @@ end
 
 ------------------------------------------
 
-local preQ = ship.getQuaternion()
+local fire = false
 local runCt = function()
     while true do
+        local tgPitch = 0
+        local omega = RotateVectorByQuat(getConjQuat(ship.getQuaternion()), ship.getOmega())
         cannonUtil:getAtt()
 
         local forecast = #properties.forecast == 0 and 0 or tonumber(properties.forecast)
@@ -382,87 +371,123 @@ local runCt = function()
         local cannonPos = cannonUtil:getNextPos(forecast)
         --genParticle(cannonPos.x, cannonPos.y, cannonPos.z)
 
-        local target = controlCenter.tgPos
-        target.x = target.x + controlCenter.velocity.x * 10
-        target.y = target.y + controlCenter.velocity.y * 10
-        target.z = target.z + controlCenter.velocity.z * 10
-        --commands.execAsync(("say x=%0.4f, y=%0.4f, z=%0.4f"):format(target.x, target.y, target.z))
-        local tgVec = {
-            x = target.x - cannonPos.x,
-            y = target.y - cannonPos.y,
-            z = target.z - cannonPos.z
-        }
-        --genParticle(cannonPos.x, cannonPos.y, cannonPos.z)
+        if ct > 0 then
+            ct = ct - 1
+            local target = controlCenter.tgPos
+            target.x = target.x + controlCenter.velocity.x * 10
+            target.y = target.y + controlCenter.velocity.y * 10
+            target.z = target.z + controlCenter.velocity.z * 10
+            --commands.execAsync(("say x=%0.4f, y=%0.4f, z=%0.4f"):format(target.x, target.y, target.z))
+            local tgVec = {
+                x = target.x - cannonPos.x,
+                y = target.y - cannonPos.y,
+                z = target.z - cannonPos.z
+            }
+            --genParticle(cannonPos.x, cannonPos.y, cannonPos.z)
 
-        local omega = RotateVectorByQuat(getConjQuat(ship.getQuaternion()), ship.getOmega())
+            local xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
+            local mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
+            local tmpPitch, tmpVec
 
-        local xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
-        local mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
-        local tmpPitch, tmpVec
-
-        if cTime > 10 then
-            tmpPitch = pitchList[mid]
-            if controlCenter.mode > 2 then
-                --commands.execAsync(("say cTime=%0.1f"):format(cTime))
-                target.x = target.x + controlCenter.velocity.x * cTime
-                target.y = target.y + controlCenter.velocity.y * cTime
-                target.z = target.z + controlCenter.velocity.z * cTime
-                tgVec = {
-                    x = target.x - cannonPos.x,
-                    y = target.y - cannonPos.y,
-                    z = target.z - cannonPos.z
-                }
-                xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
-                mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
+            if cTime > 10 then
                 tmpPitch = pitchList[mid]
+                if controlCenter.mode > 2 then
+                    --commands.execAsync(("say cTime=%0.1f"):format(cTime))
+                    target.x = target.x + controlCenter.velocity.x * cTime
+                    target.y = target.y + controlCenter.velocity.y * cTime
+                    target.z = target.z + controlCenter.velocity.z * cTime
+                    tgVec = {
+                        x = target.x - cannonPos.x,
+                        y = target.y - cannonPos.y,
+                        z = target.z - cannonPos.z
+                    }
+                    xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
+                    mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
+                    tmpPitch = pitchList[mid]
+                end
+
+                local allDis = math.sqrt(tgVec.x ^ 2 + tgVec.y ^ 2 + tgVec.z ^ 2)
+                tmpVec = {
+                    x = tgVec.x,
+                    y = allDis * math.sin(math.rad(tmpPitch)),
+                    z = tgVec.z
+                }
+            else
+                tmpVec = tgVec
             end
 
-            --commands.execAsync(("say tmpPitch=%0.4f, cTime=%0.4f"):format(tmpPitch, cTime))
-            --commands.execAsync(("say xDis=%0.2f, y=%0.2f, tmpPitch=%0.2f, cTime=%0.2f"):format(xDis, tgVec.y, tmpPitch, cTime))
-            local allDis = math.sqrt(tgVec.x ^ 2 + tgVec.y ^ 2 + tgVec.z ^ 2)
-            tmpVec = {
-                x = tgVec.x,
-                y = allDis * math.sin(math.rad(tmpPitch)),
-                z = tgVec.z
+            local omegaRot = {
+                x = omega.x / 20,
+                y = omega.y / 20,
+                z = omega.z / 20,
             }
+            local sqrt = math.sqrt(omegaRot.x ^ 2 + omegaRot.y ^ 2 + omegaRot.z ^ 2)
+            omegaRot.x = omegaRot.x / sqrt
+            omegaRot.y = omegaRot.y / sqrt
+            omegaRot.z = omegaRot.z / sqrt
+            sqrt = math.abs(sqrt) > math.pi and copysign(math.pi, sqrt) or sqrt
+            local halfTheta = sqrt / 2
+            local sinHTheta = math.sin(halfTheta)
+            local omegaQuat = {
+                w = math.cos(halfTheta),
+                x = omegaRot.x * sinHTheta,
+                y = omegaRot.y * sinHTheta,
+                z = omegaRot.z * sinHTheta
+            }
+
+            local count = 4
+            local nextQ = ship.getQuaternion()
+            for i = 1, count, 1 do
+                nextQ = quatMultiply(nextQ, omegaQuat)
+            end
+
+            local rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion())), tmpVec)
+
+            local tmpYaw = -math.deg(math.atan2(rot.z, -rot.x))
+            local localVec = RotateVectorByQuat(quatMultiply(quatList[properties.lock_yaw_face], getConjQuat(parent.quat)), tmpVec)
+
+            local yaw_range = #properties.lock_yaw_range == 0 and 0 or tonumber(properties.lock_yaw_range)
+            yaw_range = yaw_range and yaw_range or 0
+            local localYaw = -math.deg(math.atan2(localVec.z, -localVec.x))
+            if math.abs(localYaw) < yaw_range then
+                tmpYaw = 0
+            end
+
+            local p = #properties.P == 0 and 0 or tonumber(properties.P)
+            p = p and p or 0
+            local d = #properties.D == 0 and 0 or tonumber(properties.D)
+            d = d and d or 0
+            local yawSpeed = math.floor(pdCt(tmpYaw, omega.y, p, d) + 0.5)
+            if properties.InvertYaw then
+                yawSpeed = -yawSpeed
+            end
+
+            local id = #properties.phyBearID == 0 and 0 or tonumber(properties.phyBearID)
+            id = id and id or 0
+            rednet.send(id, yawSpeed, protocol)
+
+            ------self(pitch)-------
+            tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
         else
-            tmpVec = tgVec
+            local xP = RotateVectorByQuat(parent.quat, {x = 1, y = 0, z = 0})
+            local xP2 = RotateVectorByQuat(cannonUtil.quat, {x = 1, y = 0, z = 0})
+            local resultYaw = resetAngelRange(math.deg(-math.atan2(xP.z, -xP.x)) - math.deg(-math.atan2(xP2.z, -xP2.x)))
+            local yawSpeed = math.floor(pdCt(resultYaw, omega.y, 1, 2) + 0.5)
+            if properties.InvertYaw then
+                yawSpeed = -yawSpeed
+            end
+
+            local id = #properties.phyBearID == 0 and 0 or tonumber(properties.phyBearID)
+            id = id and id or 0
+            rednet.send(id, yawSpeed, protocol)
         end
 
-        local rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion())), tmpVec)
-        --genParticle(cannonPos.x + tmpVec.x, cannonPos.y + tmpVec.y, cannonPos.z + tmpVec.z)
-        --commands.execAsync(("say x=%0.4f, y=%0.4f, z=%0.4f"):format(tmpVec.x, tmpVec.y, tmpVec.z))
-
-        local tmpYaw = -math.deg(math.atan2(rot.z, -rot.x))
-        local localVec = RotateVectorByQuat(quatMultiply(quatList[properties.lock_yaw_face], getConjQuat(parent.quat)), tmpVec)
-
-        local yaw_range = #properties.lock_yaw_range == 0 and 0 or tonumber(properties.lock_yaw_range)
-        yaw_range = yaw_range and yaw_range or 0
-        local localYaw = -math.deg(math.atan2(localVec.z, -localVec.x))
-        --commands.execAsync(("say localYaw=%d"):format(localYaw))
-        if math.abs(localYaw) < yaw_range then
-            tmpYaw = 0
+        if tgPitch < properties.minPitchAngle then
+            tgPitch = properties.minPitchAngle
+            fire = false
+        else
+            fire = controlCenter.fire
         end
-        --commands.execAsync(("say tmpYaw=%0.2f"):format(tmpYaw))
-        local p = #properties.P == 0 and 0 or tonumber(properties.P)
-        p = p and p or 0
-        local d = #properties.D == 0 and 0 or tonumber(properties.D)
-        d = d and d or 0
-        local yawSpeed = math.floor(pdCt(tmpYaw, omega.y, p, d) + 0.5)
-        if properties.InvertYaw then
-            yawSpeed = -yawSpeed
-        end
-
-        local id = #properties.phyBearID == 0 and 0 or tonumber(properties.phyBearID)
-        id = id and id or 0
-        rednet.send(id, yawSpeed, protocol)
-        preQ = q
-
-        ------self(pitch)-------
-        local tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
-
-        tgPitch = tgPitch < properties.minPitchAngle and properties.minPitchAngle or tgPitch
-
         local cannonPitch = cannon.getPitch()
         if properties.InvertPitch then
             tgPitch = resetAngelRange(tgPitch - cannonPitch)
@@ -854,14 +879,10 @@ end
 
 local checkFire = function()
     while true do
-        if controlCenter.fire then
-            if not redstone.getOutput(properties.fire) then
-                redstone.setOutput(properties.fire, true)
-            end
+        if fire and ct > 0 then
+            redstone.setOutput(properties.fire, controlCenter.fire)
         else
-            if redstone.getOutput(properties.fire) then
-                redstone.setOutput(properties.fire, false)
-            end
+            redstone.setOutput(properties.fire, false)
         end
         sleep(0.05)
     end
