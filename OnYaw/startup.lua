@@ -193,6 +193,7 @@ end
 
 local id, msg
 local run = function ()
+    local slug = ship and ship.getName() or nil
     while true do
         repeat
             id, msg = rednet.receive(protocol)
@@ -202,7 +203,7 @@ local run = function ()
         end
         gear.setTargetSpeed(msg)
         if parentId then
-            rednet.send(parentId, ship.getQuaternion(), protocol)
+            rednet.send(parentId, {quat = ship.getQuaternion(), slug = slug}, protocol)
         end
     end
 end
