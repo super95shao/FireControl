@@ -46,10 +46,11 @@ system.reset = function()
         max_rotate_speed = 256,
         lock_yaw_range = "0",
         lock_yaw_face = "east",
-        velocity = "158",
+        velocity = "160",
         barrelLength = "8",
         forecast = "16",
         gravity = "0.05",
+        drag = "0.99",
     }
 end
 
@@ -69,11 +70,6 @@ local gears = { peripheral.find("Create_RotationSpeedController") }
 local yawGear = gears[1]
 local pitchGear = gears[2]
 
-local cannon = peripheral.find("cbc_cannon_mount")
-if not cannon then
-    printError("Need peripheral: cbc_cannon_mount")
-    return
-end
 if not yawGear or not pitchGear then
     printError("Need SpeedController")
 else
@@ -83,9 +79,14 @@ else
         redstone.setOutput(properties.power_on, false)
         redstone.setOutput(properties.power_on, true)
     end
-    sleep(0.1)
+    sleep(0.25)
 end
 
+local cannon = peripheral.find("cbc_cannon_mount")
+if not cannon then
+    printError("Need peripheral: cbc_cannon_mount")
+    return
+end
 
 -----------function------------
 local quatMultiply = function(q1, q2)
@@ -207,48 +208,50 @@ end
 local getTime = function(dis, pitch)
     local barrelLength = #properties.barrelLength == 0 and 0 or tonumber(properties.barrelLength)
     barrelLength = barrelLength and barrelLength or 0
-    dis = dis - barrelLength * math.cos(pitch)
+    local cosP = math.cos(pitch)
+    dis = dis - barrelLength * cosP
 
     local v0 = #properties.velocity == 0 and 0 or tonumber(properties.velocity) / 20
     v0 = v0 and v0 or 0
-    --local result = math.log((dis * lnD) / (v0 * math.cos(pitch)) + 1, drag)
-    local result = math.abs(math.log(1 - dis / (100 * (math.cos(pitch) * v0))) / (-0.010050335853501))
+
+    local drag = #properties.drag == 0 and 0 or tonumber(properties.drag)
+    drag = drag and drag or 0.99
+    
+    local result
+
+    if drag < 0.01 or drag > 0.999 then
+        result = dis / (cosP * v0)
+    else
+        result = math.abs(math.log(1 - dis / (100 * (cosP * v0))) / ln(drag))
+    end
+    -- local result = math.log((dis * lnD) / (v0 * cosP) + 1, drag)
 
     return result and result or 0
 end
 
-local lnD = ln(0.99)
-local getYcoord = function(t, y0, pitch)
-    t = t - 1
-    local grav = #properties.gravity == 0 and 0 or tonumber(properties.gravity)
-    grav = grav and 0.05 or grav
-    local sinA = math.sin(pitch)
-    local dt = math.pow(0.99, t)
-    local barrelLength = #properties.barrelLength == 0 and 0 or tonumber(properties.barrelLength)
-    barrelLength = barrelLength and barrelLength or 0
-    y0 = barrelLength * sinA + y0
-    local v0 = #properties.velocity == 0 and 0 or tonumber(properties.velocity) / 20
-    local Vy = v0 * sinA
-    return (dt * Vy) / lnD - (-grav * dt) / (lnD * (1 - 0.99)) + (-grav * t) / (1 - 0.99) +
-        (-grav / (1 - 0.99) - Vy) / lnD + y0
-end
-
 local getY2 = function(t, y0, pitch)
-    if t > 10000 then return "out" end
+    if t > 10000 then
+        return 0
+    end
     local grav = #properties.gravity == 0 and 0 or tonumber(properties.gravity)
-    grav = grav and 0.05 or grav
-    local sinA = math.sin(pitch)
+    grav = grav and grav or 0.05
+    local sinP = math.sin(pitch)
     local barrelLength = #properties.barrelLength == 0 and 0 or tonumber(properties.barrelLength)
     barrelLength = barrelLength and barrelLength or 0
-    y0 = barrelLength * sinA + y0
+    y0 = barrelLength * sinP + y0
     local v0 = #properties.velocity == 0 and 0 or tonumber(properties.velocity) / 20
     v0 = v0 and v0 or 0
-    local Vy = v0 * sinA
+    local Vy = v0 * sinP
 
+    local drag = #properties.drag == 0 and 0 or tonumber(properties.drag)
+    drag = drag and drag or 0.99
+    if drag < 0.01 then
+        drag = 1
+    end
     local index = 1
     while index < t do
         y0 = y0 + Vy
-        Vy = 0.99 * Vy - grav
+        Vy = drag * Vy - grav
         index = index + 1
     end
 
@@ -261,10 +264,10 @@ local ag_binary_search = function(arr, xDis, y0, yDis)
     local mid, time
     while low <= high do
         mid = math.floor((low + high) / 2)
-        local pitch = math.rad(arr[mid])
+        local pitch = arr[mid]
         time = getTime(xDis, pitch)
         local result = yDis - getY2(time, y0, pitch)
-        if result >= -0.01 and result <= 0.01 then
+        if result >= -0.018 and result <= 0.018 then
             return mid, time
         elseif result > 0 then
             low = mid + 1
@@ -276,7 +279,7 @@ local ag_binary_search = function(arr, xDis, y0, yDis)
 end
 
 local controlCenter = { tgPos = { x = 0, y = 0, z = 0 }, velocity = { x = 0, y = 0, z = 0 }, mode = 2, fire = false }
-local ct = 10
+local ct = 20
 local listener = function()
     local controlCenterId = #properties.controlCenterId == 0 and 0 or tonumber(properties.controlCenterId)
     controlCenterId = controlCenterId and controlCenterId or 0
@@ -284,7 +287,7 @@ local listener = function()
         local id, msg = rednet.receive(protocol, 2)
         if id == controlCenterId then
             controlCenter = msg
-            ct = 10
+            ct = 20
         end
     end
 end
@@ -359,9 +362,10 @@ local sendToGear = function(y, p)
 end
 
 local pitchList = {}
-for i = -90, 90, 0.01875 do
-    table.insert(pitchList, i)
+for i = -90, 90, 0.0375 do
+    table.insert(pitchList, math.rad(i))
 end
+
 
 ------------------------------------------
 
@@ -385,9 +389,9 @@ local runCt = function()
             --genParticle(cannonPos.x, cannonPos.y, cannonPos.z)
 
             local target = controlCenter.tgPos
-            target.x = target.x + controlCenter.velocity.x * 10
-            target.y = target.y + controlCenter.velocity.y * 10
-            target.z = target.z + controlCenter.velocity.z * 10
+            target.x = target.x + controlCenter.velocity.x * 8
+            target.y = target.y + controlCenter.velocity.y * 8
+            target.z = target.z + controlCenter.velocity.z * 8
             --commands.execAsync(("say x=%0.4f, y=%0.4f, z=%0.4f"):format(target.x, target.y, target.z))
             local tgVec = {
                 x = target.x - cannonPos.x,
@@ -416,15 +420,19 @@ local runCt = function()
                     tmpPitch = pitchList[mid]
                 end
 
-                local allDis = math.sqrt(tgVec.x ^ 2 + tgVec.y ^ 2 + tgVec.z ^ 2)
+                local _c = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
+                local allDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2 + tgVec.z ^ 2)
+                local cosP = math.cos(tmpPitch)
                 tmpVec = {
-                    x = tgVec.x,
-                    y = allDis * math.sin(math.rad(tmpPitch)),
-                    z = tgVec.z
+                    x = _c * (tgVec.x / _c) * cosP,
+                    y = allDis * math.sin(tmpPitch),
+                    z = _c * (tgVec.z / _c) * cosP
                 }
             else
                 tmpVec = tgVec
             end
+
+            local rot
 
             local omegaRot = {
                 x = omega.x / 20,
@@ -432,26 +440,30 @@ local runCt = function()
                 z = omega.z / 20,
             }
             local sqrt = math.sqrt(omegaRot.x ^ 2 + omegaRot.y ^ 2 + omegaRot.z ^ 2)
-            omegaRot.x = omegaRot.x / sqrt
-            omegaRot.y = omegaRot.y / sqrt
-            omegaRot.z = omegaRot.z / sqrt
             sqrt = math.abs(sqrt) > math.pi and copysign(math.pi, sqrt) or sqrt
-            local halfTheta = sqrt / 2
-            local sinHTheta = math.sin(halfTheta)
-            local omegaQuat = {
-                w = math.cos(halfTheta),
-                x = omegaRot.x * sinHTheta,
-                y = omegaRot.y * sinHTheta,
-                z = omegaRot.z * sinHTheta
-            }
 
-            local count = 4
-            local nextQ = ship.getQuaternion()
-            for i = 1, count, 1 do
-                nextQ = quatMultiply(nextQ, omegaQuat)
+            if sqrt ~= 0 then
+                omegaRot.x = omegaRot.x / sqrt
+                omegaRot.y = omegaRot.y / sqrt
+                omegaRot.z = omegaRot.z / sqrt
+                local halfTheta = sqrt / 2
+                local sinHTheta = math.sin(halfTheta)
+                local omegaQuat = {
+                    w = math.cos(halfTheta),
+                    x = omegaRot.x * sinHTheta,
+                    y = omegaRot.y * sinHTheta,
+                    z = omegaRot.z * sinHTheta
+                }
+    
+                local count = math.floor(forecast / 4)
+                local nextQ = ship.getQuaternion()
+                for i = 1, count, 1 do
+                    nextQ = quatMultiply(nextQ, omegaQuat)
+                end
+                rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], getConjQuat(nextQ)), tmpVec)
+            else
+                rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion())), tmpVec)
             end
-
-            local rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], getConjQuat(nextQ)), tmpVec)
 
             local tmpYaw = math.deg(math.atan2(rot.z, -rot.x))
             local localVec = RotateVectorByQuat(quatMultiply(quatList[properties.lock_yaw_face], getConjQuat(ship.getQuaternion())), tmpVec)
@@ -468,6 +480,10 @@ local runCt = function()
                 tmpYaw = resetAngelRange(cannon.yaw - tmpYaw)
             else
                 tmpYaw = resetAngelRange(tmpYaw - cannon.yaw)
+            end
+
+            if math.abs(tmpYaw) > 10 then
+                fire = false
             end
 
             tmpYaw = math.abs(tmpYaw) > 0.01875 and tmpYaw or 0
@@ -489,12 +505,17 @@ local runCt = function()
         else
             fire = controlCenter.fire
         end
+
         if properties.InvertPitch then
             tgPitch = resetAngelRange(tgPitch - cannon.pitch)
         else
             tgPitch = resetAngelRange(cannon.pitch - tgPitch)
         end
 
+        if math.abs(tgPitch) > 5 then
+            fire = false
+        end
+        
         tgPitch = math.abs(tgPitch) > 0.01875 and tgPitch or 0
         pitchSpeed = math.floor(tgPitch * ANGLE_TO_SPEED / 2 + 0.5)
         pitchSpeed = math.abs(pitchSpeed) < properties.max_rotate_speed and pitchSpeed or
@@ -583,7 +604,7 @@ function absTextField:inputChar(char)
             end
         elseif self.type == "string" then
             local strEnd = string.sub(field, xPos, #field)
-            field = string.sub(field, 1, xPos) .. char .. strEnd
+            field = string.sub(field, 1, xPos - 1) .. char .. strEnd
             self.key[self.value] = field
             termUtil.cpX = termUtil.cpX + 1
         end
@@ -743,7 +764,8 @@ local runTerm = function()
         cannonOffset_x = newTextField(properties.cannonOffset, "x", 18, 6),
         cannonOffset_y = newTextField(properties.cannonOffset, "y", 24, 6),
         cannonOffset_z = newTextField(properties.cannonOffset, "z", 30, 6),
-        --gravity = newTextField(properties, "gravity", 45, 6),
+        gravity = newTextField(properties, "gravity", 45, 6),
+        drag = newTextField(properties, "drag", 45, 7),
         forecast = newTextField(properties, "forecast", 46, 2),
         cannonName = newTextField(properties, "cannonName", 14, 17),
         controlCenterId = newTextField(properties, "controlCenterId", 19, 18),
@@ -759,11 +781,12 @@ local runTerm = function()
     fieldTb.cannonOffset_x.len = 3
     fieldTb.cannonOffset_y.len = 3
     fieldTb.cannonOffset_z.len = 3
-    --fieldTb.gravity.len = 6
+    fieldTb.gravity.len = 6
+    fieldTb.drag.len = 6
     fieldTb.forecast.len = 5
     local selectBoxTb = {
-        power_on = newSelectBox(properties, "power_on", 2, 12, 3, "top", "bottom", "left", "right", "front", "back"),
-        fire = newSelectBox(properties, "fire", 2, 8, 4, "top", "bottom", "left", "right", "front", "back"),
+        power_on = newSelectBox(properties, "power_on", 2, 12, 3, "top", "left", "right", "front", "back"),
+        fire = newSelectBox(properties, "fire", 2, 8, 4, "top", "left", "right", "front", "back"),
         face = newSelectBox(properties, "face", 2, 8, 5, "south", "west", "north", "east"),
         lock_yaw_face = newSelectBox(properties, "lock_yaw_face", 2, 27, 12, "south", "west", "north", "east"),
         InvertYaw = newSelectBox(properties, "InvertYaw", 1, 41, 13, false, true),
@@ -805,8 +828,10 @@ local runTerm = function()
 
                 term.setCursorPos(2, 6)
                 term.write("CannonOffset: x=    y=    z=")
-                --term.setCursorPos(36, 6)
-                --term.write("gravity: ")
+                term.setCursorPos(36, 6)
+                term.write("gravity: ")
+                term.setCursorPos(36, 7)
+                term.write("   drag: ")
 
                 term.setCursorPos(2, 8)
                 term.write("MinPitchAngle: ")
