@@ -191,6 +191,35 @@ function termUtil:refresh()
     end
 end
 
+local RotateVectorByQuat = function(quat, v)
+    local x = quat.x * 2
+    local y = quat.y * 2
+    local z = quat.z * 2
+    local xx = quat.x * x
+    local yy = quat.y * y
+    local zz = quat.z * z
+    local xy = quat.x * y
+    local xz = quat.x * z
+    local yz = quat.y * z
+    local wx = quat.w * x
+    local wy = quat.w * y
+    local wz = quat.w * z
+    local res = {}
+    res.x = (1.0 - (yy + zz)) * v.x + (xy - wz) * v.y + (xz + wy) * v.z
+    res.y = (xy + wz) * v.x + (1.0 - (xx + zz)) * v.y + (yz - wx) * v.z
+    res.z = (xz - wy) * v.x + (yz + wx) * v.y + (1.0 - (xx + yy)) * v.z
+    return res
+end
+
+local getConjQuat = function(q)
+    return {
+        w = q.w,
+        x = -q.x,
+        y = -q.y,
+        z = -q.z
+    }
+end
+
 local id, msg
 local run = function ()
     local slug = ship and ship.getName() or nil
@@ -203,7 +232,19 @@ local run = function ()
         end
         gear.setTargetSpeed(msg)
         if parentId then
-            rednet.send(parentId, {quat = ship.getQuaternion(), slug = slug}, protocol)
+            local q = ship.getQuaternion()
+            local velocity = ship.getVelocity()
+            velocity.x = velocity.x / 20
+            velocity.y = velocity.y / 20
+            velocity.z = velocity.z / 20
+            local sendMsg = {
+                quat = q,
+                slug = slug,
+                omega = RotateVectorByQuat(getConjQuat(q), ship.getOmega()),
+                velocity = velocity,
+                pos = ship.getWorldspacePosition()
+            }
+            rednet.send(parentId, sendMsg, protocol)
         end
     end
 end
