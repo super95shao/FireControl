@@ -63,6 +63,7 @@ system.reset = function()
         bgColor = 0x000000,
         lockColor = 0x666666,
         face = "south",
+        maxSelectRange = "480",
         whiteList = {}
     }
 end
@@ -205,7 +206,7 @@ scanner = {
     MONSTER = {"minecraft:zombie", "minecraft:spider", "minecraft:creeper", "minecraft:cave_spider", "minecraft:husk",
                "minecraft:skeleton", "minecraft:wither_skeleton", "minecraft:guardian", "minecraft:phantom",
                "minecraft:pillager", "minecraft:ravager", "minecraft:vex", "minecraft:warden", "minecraft:vindicator",
-               "minecraft:witch", "minecraft:ender_dragon"}
+               "minecraft:witch", "minecraft:ender_dragon", "minecraft:wither"}
 }
 
 scanner.getShips = function()
@@ -213,6 +214,16 @@ scanner.getShips = function()
         return
     end
     local ships = coordinate.getShips(2500)
+
+    local flagEmpty = true
+    for k, v in pairs(ships) do
+        flagEmpty = false
+        break
+    end
+
+    if flagEmpty then
+        ships = coordinate.getShipsAll(2500)
+    end
 
     for k, v in pairs(scanner.vsShips) do
         v.flag = false
@@ -248,6 +259,16 @@ scanner.scanEntity = function()
         return
     end
     local ett = coordinate.getEntities(-1)
+    local flagEmpty = true
+    for k, v in pairs(ett) do
+        flagEmpty = false
+        break
+    end
+
+    if flagEmpty then
+        ett = coordinate.getEntitiesAll(-1)
+    end
+
     scanner.entities = ett
     if ett ~= nil then
         for k, v in pairs(scanner.playerList) do
@@ -273,7 +294,6 @@ scanner.scanEntity = function()
             end
             if v.isPlayer then
                 v.flag = true
-                v.y = v.y
                 scanner.playerList[v.uuid] = v
             else
                 for _, v2 in pairs(scanner.MONSTER) do
@@ -336,22 +356,16 @@ scanner.run = function()
         local onVsShip = ship
         local selfPos = onVsShip and ship.getWorldspacePosition() or coordinate.getAbsoluteCoordinates()
     
-        local quat = {}
-        if onVsShip then
-            quat = quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion()))
-        end
-        
         for k, v in pairs(group) do
-            if v.autoSelect then
-                local kk1
-                if v.mode == 3 then kk1 = "vsShips"
-                elseif v.mode == 4 then kk1 = "playerList"
-                elseif v.mode == 5 then kk1 = "monsters"
-                elseif v.mode == 6 then kk1 = "entities"
-                end
+            local kk1
+            if v.mode == 3 then kk1 = "vsShips"
+            elseif v.mode == 4 then kk1 = "playerList"
+            elseif v.mode == 5 then kk1 = "monsters"
+            elseif v.mode == 6 then kk1 = "entities"
+            end
 
-                local kk2 = kk1 == "vsShips" and "slug" or "uuid"
-
+            local kk2 = kk1 == "vsShips" and "slug" or "uuid"
+            if v.autoSelect and kk1 then
                 v.radarTargets = {}
                 for k2, v2 in pairs(scanner[kk1]) do
                     local contains = false
@@ -381,9 +395,11 @@ scanner.run = function()
                     end
                 end
 
+                local range = #properties.maxSelectRange == 0 and 0 or tonumber(properties.maxSelectRange)
+                range = range and range or 450
                 local newList = {}
                 for i = 1, len, 1 do
-                    if v.radarTargets[i] then
+                    if v.radarTargets[i] and v.radarTargets[i].dis < range then
                         table.insert(newList, v.radarTargets[i])
                     else
                         break
@@ -391,23 +407,32 @@ scanner.run = function()
                 end
 
                 v.radarTargets = newList
-
-                local index = 1
-                for _, ca in pairs(linkedCannons) do
-                    if ca.group and group[ca.group].name == v.name then
-                        rednet.send(ca.id, {
-                            tgPos = v.radarTargets[index],
-                            velocity = v.radarTargets[index].velocity,
-                            mode = group[ca.group].mode,
-                            fire = group[ca.group].fire
-                        }, protocol)
-                        index = index + 1
+                if #newList ~= 0 then
+                    local index = 1
+                    for _, ca in pairs(linkedCannons) do
+                        if ca.group and group[ca.group].name == v.name then
+                            local iIndex = index % #newList + 1
+                            rednet.send(ca.id, {
+                                tgPos = v.radarTargets[iIndex],
+                                velocity = v.radarTargets[iIndex].velocity,
+                                mode = group[ca.group].mode,
+                                fire = group[ca.group].fire
+                            }, protocol)
+                            index = index + 1
+                        end
                     end
                 end
             else
-                if v.radarTargets[1] then
+                if scanner[kk1] and v.radarTargets[1] then
+                    for k2, v2 in pairs(scanner[kk1]) do
+                        if v2[kk2] == v.radarTargets[1][kk2] then
+                            v.radarTargets[1] = v2
+                            break
+                        end
+                    end
+                
                     for _, ca in pairs(linkedCannons) do
-                        if ca.group then
+                        if ca.group and group[ca.group].name == v.name then
                             rednet.send(ca.id, {
                                 tgPos = v.radarTargets[1],
                                 velocity = v.radarTargets[1].velocity,
@@ -493,7 +518,7 @@ function absTextSelectBox:refresh()
         end
     end
 
-    if #self.list > 6 then
+    if #self.list > 5 then
         self.drawW.drawText(3, 56, "    v     ", properties.bgColor, properties.fontColor)
     end
     self.drawW.sync()
@@ -1256,7 +1281,7 @@ local getGoggles = function()
             end
 
             if index == 0 then
-                sleep(0.05)
+                sleep(0.1)
             end
         else
             sleep(0.05)
@@ -1448,7 +1473,8 @@ end
 
 function termUtil:init()
     self.fieldTb = {
-        password = newTextField(properties, "password", 12, 3)
+        password = newTextField(properties, "password", 12, 3),
+        maxSelectRange = newTextField(properties, "maxSelectRange", 18, 7),
     }
     self.selectBoxTb = {
         face = newSelectBox(properties, "face", 2, 12, 5, "south", "west", "north", "east")
@@ -1463,6 +1489,9 @@ function termUtil:refresh()
     term.write("password: ")
     term.setCursorPos(2, 5)
     term.write("Face: ")
+    term.setCursorPos(2, 7)
+    term.write("MaxSelectRange: ")
+
     for k, v in pairs(self.fieldTb) do
         v:paint()
     end
