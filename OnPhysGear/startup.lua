@@ -56,7 +56,7 @@ system.reset = function()
         forecastMov = "24",
         forecastRot = "3.4",
         gravity = "0.05",
-        drag = "0.99",
+        drag = "0.01",
         P = "1",
         D = "6"
     }
@@ -239,11 +239,11 @@ local getTime = function(dis, pitch)
     v0 = v0 and v0 or 0
 
     local drag = #properties.drag == 0 and 0 or tonumber(properties.drag)
-    drag = drag and drag or 0.99
+    drag = drag and 1 - drag or 0.99
     
     local result
 
-    if drag < 0.01 or drag > 0.999 then
+    if drag < 0.001 or drag > 0.999 then
         result = dis / (cosP * v0)
     else
         result = math.abs(math.log(1 - dis / (100 * (cosP * v0))) / ln(drag))
@@ -268,8 +268,8 @@ local getY2 = function(t, y0, pitch)
     local Vy = v0 * sinP
 
     local drag = #properties.drag == 0 and 0 or tonumber(properties.drag)
-    drag = drag and drag or 0.99
-    if drag < 0.01 then
+    drag = drag and 1 - drag or 0.99
+    if drag < 0.001 then
         drag = 1
     end
     local index = 1
@@ -920,7 +920,7 @@ local runTerm = function()
     local alarm_flag = false
     term.clear()
     term.setCursorPos(15, 8)
-    term.write("click or waiting...")
+    term.write("Press any key to continue")
     while true do
         local eventData = {os.pullEvent()}
         local event = eventData[1]
