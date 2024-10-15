@@ -346,7 +346,7 @@ scanner.run = function()
             elseif g.fireCd < 1 then
                 if g.autoFire then
                     g.fire = true
-                    g.fireCd = 10
+                    g.fireCd = 20
                 else
                     g.fire = false
                 end
@@ -840,12 +840,12 @@ end
 function absRadarButtons:RadarClick(x, y, button)
     if y <= 110 then
         if x < 18 and y < 9 then
-            if x <= 3 and y <= 2 then
+            if x <= 4 and y <= 3 then
                 group[self.group.index].autoFire = not group[self.group.index].autoFire
             end
             if x < 10 then
                 group[self.group.index].fire = true
-                group[self.group.index].fireCd = 10
+                group[self.group.index].fireCd = 20
             else
                 group[self.group.index].autoSelect = not group[self.group.index].autoSelect
                 if not group[self.group.index].autoSelect then
