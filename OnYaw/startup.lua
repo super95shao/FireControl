@@ -182,8 +182,11 @@ function termUtil:init()
     termUtil:refresh()
 end
 
+local selfId = os.getComputerID()
 function termUtil:refresh()
     term.clear()
+    term.setCursorPos(18, 1)
+    printError(string.format("self id: %d", selfId))
     term.setCursorPos(2, 3)
     term.write("parentId: ")
     for k, v in pairs(self.fieldTb) do
@@ -249,15 +252,11 @@ local run = function ()
     end
 end
 
-local selfId = os.getComputerID()
 local listener = function ()
     while true do
         local eventData = { os.pullEvent() }
         local event = eventData[1]
 
-        term.setCursorPos(18, 1)
-        printError(string.format("self id: %d", selfId))
-        
         if event == "mouse_click" or event == "key" or event == "char" then
             if event == "mouse_click" then
                 term.setCursorBlink(true)
