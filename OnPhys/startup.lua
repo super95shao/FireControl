@@ -43,7 +43,7 @@ system.reset = function()
             y = 3,
             z = 0
         },
-        minPitchAngle = -45,
+        minPitchAngle = -90,
         face = "west",
         password = "123456",
         InvertYaw = false,
