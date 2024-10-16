@@ -249,14 +249,19 @@ local run = function ()
     end
 end
 
+local selfId = os.getComputerID()
 local listener = function ()
     while true do
         local eventData = { os.pullEvent() }
         local event = eventData[1]
 
+        term.setCursorPos(18, 1)
+        printError(string.format("self id: %d", selfId))
+        
         if event == "mouse_click" or event == "key" or event == "char" then
             if event == "mouse_click" then
                 term.setCursorBlink(true)
+
                 local x, y = eventData[3], eventData[4]
                 for k, v in pairs(termUtil.fieldTb) do --点击了输入框
                     if y == v.y and x >= v.x and x <= v.x + v.len then
