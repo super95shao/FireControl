@@ -869,6 +869,7 @@ local newSlider = function(key, value, min, max, len, x, y)
     })
 end
 
+local selfId = os.getComputerID()
 local runTerm = function()
     local fieldTb = {
         velocity = newTextField(properties, "velocity", 11, 2),
@@ -935,6 +936,8 @@ local runTerm = function()
                 alarm_flag = true
             else
                 term.clear()
+                term.setCursorPos(18, 1)
+                printError(string.format("self id: %d", selfId))
                 term.setCursorPos(2, 2)
                 term.write("Velocity")
                 term.setCursorPos(17, 2)
