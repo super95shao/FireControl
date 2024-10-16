@@ -1483,8 +1483,12 @@ function termUtil:init()
     termUtil:refresh()
 end
 
+local selfId = os.getComputerID()
 function termUtil:refresh()
     term.clear()
+    term.setCursorPos(18, 1)
+    printError(string.format("self id: %d", selfId))
+
     term.setCursorPos(2, 3)
     term.write("password: ")
     term.setCursorPos(2, 5)
