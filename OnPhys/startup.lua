@@ -605,14 +605,16 @@ local runCt = function()
                 z = -cannonUtil.quat.z
             }
             local xP2 = RotateVectorByQuat(pq, xP)
-            local resultYaw = -math.deg(math.atan2(xP2.z, xP2.x))
+            local resultYaw
+            if properties.InvertYaw then
+                resultYaw = -math.deg(math.atan2(xP2.z, xP2.x))
+            else
+                resultYaw = -math.deg(math.atan2(xP2.z, -xP2.x))
+            end
             local resultPitch = math.deg(math.asin(xP2.y / math.sqrt(xP2.x ^ 2 + xP2.y ^ 2 + xP2.z ^ 2)))
 
-            --if properties.InvertYaw then
-            --    resultYaw = -resultYaw
-            --end
             --if properties.InvertPitch then
-            --    resultYaw = -resultYaw
+            --    resultPitch = -resultPitch
             --end
 
             local p, d = getPD()
