@@ -1,59 +1,68 @@
 local goggle_link_port = peripheral.find("goggle_link_port")
 
-local system, properties, linkedCannons, scanner, rayCaster
+local system, properties, linkedCannons, scanner, rayCaster, group, cannonState
 local linkedgoggles = {}
 local modList = {"HMS", "POINT", "SHIP", "PLAYER", "MONSTER", "ENTITY"}
 local protocol, request_protocol = "CBCNetWork", "CBCcenter"
-local group = {}
-for i = 1, 10, 1 do
-    group[i] = {
-        name = "group" .. i,
-        mode = 2,
-        pos = {
-            x = 0,
-            y = 0,
-            z = 0
-        },
-        HmsUser = nil,
-        HmsMode = 1,
-        radarTargets = {},
-        fire = false,
-        fireCd = 0,
-        autoFire = false,
-        autoSelect = false,
-    }
-end
 
 local tm_monitors = {
     list = {}
 }
 
-linkedCannons = {}
-
 system = {
-    fileName = "dat",
-    file = nil
+    propFileName = "dat",
+    groupFileName = "group",
+    linkedCannons = "linkedCannons",
+
+    propFile = nil
 }
 
 system.init = function()
-    system.file = io.open(system.fileName, "r")
-    if system.file then
-        local tmpProp = textutils.unserialise(system.file:read("a"))
-        properties = system.reset()
-        for k, v in pairs(properties) do
-            if tmpProp[k] then
-                properties[k] = tmpProp[k]
-            end
-        end
-
-        system.file:close()
-    else
-        properties = system.reset()
-        system.updatePersistentData()
-    end
+    properties = system.datFromFile(system.propFileName)
+    group = system.datFromFile(system.groupFileName)
+    linkedCannons = system.datFromFile(system.linkedCannons)
+    
+    system.updatePersistentData()
 end
 
-system.reset = function()
+system.datFromFile = function (fileName)
+    local file = io.open(fileName, "r")
+    local result
+    if file then
+        local tmpFile = textutils.unserialise(file:read("a"))
+        
+        if fileName == "dat" then
+            result = system.resetProp()
+            for k, v in pairs(result) do
+                if tmpFile[k] then
+                    result[k] = tmpFile[k]
+                end
+            end
+        elseif fileName == "group" then
+            if #tmpFile < 1 then
+                result = system.resetGroup()
+            else
+                result = tmpFile
+            end
+        elseif fileName == "linkedCannons" then
+            result = tmpFile
+        end
+
+        file:close()
+    else
+        if fileName == "dat" then
+            result = system.resetProp()
+        elseif fileName == "group" then
+            result = system.resetGroup()
+        elseif fileName == "linkedCannons" then
+            result = {}
+        end
+    end
+    
+    return result
+end
+
+system.resetProp = function()
     return {
         password = "123456",
         raycastRange = 256,
@@ -68,8 +77,33 @@ system.reset = function()
     }
 end
 
+system.resetGroup = function ()
+    local g = {}
+    for i = 1, 10, 1 do
+        g[i] = {
+            name = "group" .. i,
+            mode = 2,
+            pos = {
+                x = 0,
+                y = 0,
+                z = 0
+            },
+            HmsUser = nil,
+            HmsMode = 1,
+            radarTargets = {},
+            fire = false,
+            fireCd = 0,
+            autoFire = false,
+            autoSelect = false,
+        }
+    end
+    return g
+end
+
 system.updatePersistentData = function()
-    system.write(system.fileName, properties)
+    system.write(system.propFileName, properties)
+    system.write(system.groupFileName, group)
+    system.write(system.linkedCannons, linkedCannons)
 end
 
 system.write = function(file, obj)
