@@ -1,8 +1,8 @@
 ### 这是一款基于Valkyrie skies 2、CBC、CC:Tweaked、CCVS的火控计算机
 ### This is a fire control computer based on Valkyrie skies 2, CBC, CC:Tweaked, CCVS
 
-火控需要玄学Mod作为API （0.0.3+）：
-Fire control requires Metaphysics Mod as API
+火控需要玄学Mod作为API （0.0.4+）：
+Fire control requires Metaphysics Mod(0.0.4+) as API：
 > @kallen https://github.com/KallenKas024/Metaphysics/tree/main
 
 该火控需要依赖以下mod：
