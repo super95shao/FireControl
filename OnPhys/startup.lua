@@ -58,7 +58,7 @@ system.reset = function()
         gravity = "0.05",
         drag = "0.01",
         P = "1",
-        D = "6"
+        D = "0"
     }
 end
 
@@ -558,7 +558,7 @@ local runCt = function()
             local rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], getConjQuat(nextQ)), tmpVec)
 
             local tmpYaw = -math.deg(math.atan2(rot.z, -rot.x))
-            local tmpPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
+            local tmpPitch = -math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
 
             local localVec = RotateVectorByQuat(quatMultiply(quatList[properties.lock_yaw_face], getConjQuat(parent.quat)), tmpVec)
 
@@ -594,7 +594,7 @@ local runCt = function()
             rednet.send(PitchId, pitchSpeed, protocol)
         else
             local xP = RotateVectorByQuat(parent.quat, {
-                x = 1,
+                x = -1,
                 y = 0,
                 z = 0
             })
@@ -605,17 +605,15 @@ local runCt = function()
                 z = -cannonUtil.quat.z
             }
             local xP2 = RotateVectorByQuat(pq, xP)
-            local resultYaw
+            local resultYaw = -math.deg(math.atan2(xP2.z, -xP2.x))
             if properties.InvertYaw then
-                resultYaw = -math.deg(math.atan2(xP2.z, xP2.x))
-            else
-                resultYaw = -math.deg(math.atan2(xP2.z, -xP2.x))
+                resultYaw = -resultYaw
             end
-            local resultPitch = math.deg(math.asin(xP2.y / math.sqrt(xP2.x ^ 2 + xP2.y ^ 2 + xP2.z ^ 2)))
+            local resultPitch = -math.deg(math.asin(xP2.y / math.sqrt(xP2.x ^ 2 + xP2.y ^ 2 + xP2.z ^ 2)))
 
-            --if properties.InvertPitch then
-            --    resultPitch = -resultPitch
-            --end
+            if properties.InvertPitch then
+                resultPitch = -resultPitch
+            end
 
             local p, d = getPD()
             local yawSpeed = math.floor(pdCt(resultYaw, omega.y, p, d) + 0.5)
