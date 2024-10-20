@@ -44,13 +44,14 @@ system.reset = function()
         },
         minPitchAngle = -45,
         face = "west",
+        cannonFace = "west",
         password = "123456",
         InvertYaw = false,
         InvertPitch = false,
         max_rotate_speed = 256,
         lock_yaw_range = "0",
         lock_yaw_face = "east",
-        velocity = "160",
+        velocity = 160,
         barrelLength = "8",
         forecastMov = "24",
         forecastRot = "3.4",
@@ -423,6 +424,18 @@ function cannonUtil:getNextPos(t)
     }
 end
 
+local getVecFromFace = function (face)
+    if face == "west" then
+        return {x = -1, y = 0, z = 0}
+    elseif face == "east" then
+        return {x = 1, y = 0, z = 0}
+    elseif face == "north" then
+        return {x = 0, y = 0, z = -1}
+    elseif face == "south" then
+        return {x = 0, y = 0, z = 1}
+    end
+end
+
 local pitchList = {}
 for i = -90, 90, 0.0375 do
     table.insert(pitchList, math.rad(i))
@@ -584,11 +597,9 @@ local runCt = function()
             ------self(pitch)-------
             tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
         else
-            local xP = RotateVectorByQuat(parent.quat, {
-                x = 1,
-                y = 0,
-                z = 0
-            })
+            local point = getVecFromFace(properties.cannonFace)
+
+            local xP = RotateVectorByQuat(parent.quat, point)
             local pq = {
                 w = cannonUtil.quat.w,
                 x = -cannonUtil.quat.x,
@@ -596,12 +607,12 @@ local runCt = function()
                 z = -cannonUtil.quat.z
             }
             local xP2 = RotateVectorByQuat(pq, xP)
-            local resultYaw = math.deg(math.atan2(xP2.z, xP2.x))
-            local yawSpeed = math.floor(pdCt(resultYaw, omega.y, 1, 2) + 0.5)
+            local resultYaw = -math.deg(math.atan2(xP2.z, -xP2.x))
             if properties.InvertYaw then
-                yawSpeed = -yawSpeed
+                resultYaw = -resultYaw
             end
-
+            local yawSpeed = math.floor(pdCt(resultYaw, omega.y, 1, 2) + 0.5)
+            
             if math.abs(resultYaw) > 10 then
                 fire = false
             end
@@ -878,9 +889,9 @@ local runTerm = function()
         minPitchAngle = newTextField(properties, "minPitchAngle", 17, 8),
         max_rotate_speed = newTextField(properties, "max_rotate_speed", 20, 10),
         lock_yaw_range = newTextField(properties, "lock_yaw_range", 20, 12),
-        cannonOffset_x = newTextField(properties.cannonOffset, "x", 18, 6),
-        cannonOffset_y = newTextField(properties.cannonOffset, "y", 24, 6),
-        cannonOffset_z = newTextField(properties.cannonOffset, "z", 30, 6),
+        cannonOffset_x = newTextField(properties.cannonOffset, "x", 18, 7),
+        cannonOffset_y = newTextField(properties.cannonOffset, "y", 24, 7),
+        cannonOffset_z = newTextField(properties.cannonOffset, "z", 30, 7),
         P = newTextField(properties, "P", 4, 16),
         D = newTextField(properties, "D", 12, 16),
         gravity = newTextField(properties, "gravity", 45, 6),
@@ -912,6 +923,7 @@ local runTerm = function()
         power_on = newSelectBox(properties, "power_on", 2, 12, 3, "top", "left", "right", "front", "back"),
         fire = newSelectBox(properties, "fire", 2, 8, 4, "top", "left", "right", "front", "back"),
         face = newSelectBox(properties, "face", 2, 8, 5, "south", "west", "north", "east"),
+        cannonFace = newSelectBox(properties, "cannonFace", 1, 14, 6, "south", "west", "north", "east"),
         lock_yaw_face = newSelectBox(properties, "lock_yaw_face", 2, 27, 12, "south", "west", "north", "east"),
         InvertYaw = newSelectBox(properties, "InvertYaw", 1, 41, 14, false, true),
         InvertPitch = newSelectBox(properties, "InvertPitch", 1, 15, 14, false, true)
@@ -950,7 +962,7 @@ local runTerm = function()
                 term.setCursorPos(2, 4)
                 term.write("FIRE: ")
 
-                term.setCursorPos(2, 6)
+                term.setCursorPos(2, 7)
                 term.write("CannonOffset: x=    y=    z=")
                 term.setCursorPos(36, 6)
                 term.write("gravity: ")
@@ -966,6 +978,8 @@ local runTerm = function()
 
                 term.setCursorPos(2, 5)
                 term.write("Face: ")
+                term.setCursorPos(2, 6)
+                term.write("cannonFace: ")
 
                 term.setCursorPos(2, 14)
                 term.write("InvertPitch: ")
