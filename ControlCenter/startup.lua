@@ -524,30 +524,30 @@ function absTextSelectBox:refresh()
     self.drawW.drawText(3, 1, self.name)
     local index = 1 + (self.page - 1) * 6
     for i = index, #self.list, 1 do
-        if i >= index + 6 then
-            break
-        end
+        if i >= index + 6 then break end
         local str = self.list[i].name
-        if #str > 10 then
-            str = string.sub(str, 1, 10)
-        elseif #str < 10 then
-            for j = 1, 10 - #str, 1 do
-                str = str .. " "
+        if str then
+            if #str > 10 then
+                str = string.sub(str, 1, 10)
+            elseif #str < 10 then
+                for j = 1, 10 - #str, 1 do
+                    str = str .. " "
+                end
             end
-        end
-        if self.mode == "index" then
-            if i == self.group.index then
-                self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.bgColor, properties.selectColor, 1)
-            else
-                self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.bgColor, properties.fontColor, 1)
-            end
-        elseif self.mode == "switch" then
-            if self.list[i].group == self.group.index then
-                self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.bgColor, properties.selectColor, 1)
-            elseif self.list[i].group == nil then
-                self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.bgColor, properties.fontColor, 1)
-            else
-                self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.lockColor, properties.bgColor, 1)
+            if self.mode == "index" then
+                if i == self.group.index then
+                    self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.bgColor, properties.selectColor, 1)
+                else
+                    self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.bgColor, properties.fontColor, 1)
+                end
+            elseif self.mode == "switch" then
+                if self.list[i].group == self.group.index then
+                    self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.bgColor, properties.selectColor, 1)
+                elseif self.list[i].group == nil then
+                    self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.bgColor, properties.fontColor, 1)
+                else
+                    self.drawW.drawText(3, (i + 1 - index) * 8 + 1, str, properties.lockColor, properties.bgColor, 1)
+                end
             end
         end
     end
