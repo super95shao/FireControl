@@ -580,7 +580,7 @@ local runCt = function()
 
             local p, d = getPD()
             local yawSpeed = math.floor(pdCt(tmpYaw, omega.y, p, d) + 0.5)
-            local pitchSpeed = math.floor(pdCt(tmpPitch, omega.z, p, d) + 0.5)
+            local pitchSpeed = math.floor(pdCt(tmpPitch, -omega.z, p, d) + 0.5)
 
             if properties.InvertYaw then
                 yawSpeed = -yawSpeed
@@ -617,7 +617,7 @@ local runCt = function()
 
             local p, d = getPD()
             local yawSpeed = math.floor(pdCt(resultYaw, omega.y, p, d) + 0.5)
-            local pitchSpeed = math.floor(pdCt(resultPitch, omega.z, p, d) + 0.5)
+            local pitchSpeed = math.floor(pdCt(resultPitch, -omega.z, p, d) + 0.5)
 
             if math.abs(resultYaw) or math.abs(resultPitch) > 10 then
                 fire = false
