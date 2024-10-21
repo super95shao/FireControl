@@ -324,6 +324,9 @@ local parent = {
     omega = newVec(),
     velocity = newVec()
 }
+local pitchParent = {
+    slug = ""
+}
 local controlCenter = {
     tgPos = newVec(),
     velocity = newVec(),
@@ -362,6 +365,8 @@ local listener = function()
             parent.slug = msg.slug
             parent.velocity = msg.velocity
             parent.pos = msg.pos
+        elseif id == PitchId then
+            pitchParent.slug = msg.slug
         elseif id == controlCenterId then
             controlCenter = msg
             ct = 20
@@ -378,7 +383,8 @@ local sendRequest = function()
             name = properties.cannonName,
             pw = properties.password,
             slug = slug,
-            yawSlug = parent.slug
+            yawSlug = parent.slug,
+            pitchSlug = pitchParent.slug,
         }, request_protocol)
         sleep(1)
     end
