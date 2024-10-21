@@ -1573,6 +1573,10 @@ local redNet = function()
                 if not table.contains(properties.whiteList, msg.yawSlug) then
                     table.insert(properties.whiteList, msg.yawSlug)
                 end
+
+                if msg.pitchSlug and not table.contains(properties.whiteList, msg.pitchSlug) then
+                    table.insert(properties.whiteList, msg.pitchSlug)
+                end
             end
 
             for k, v in pairs(tm_monitors.list) do
