@@ -405,10 +405,10 @@ local runCt = function()
             local xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
             local mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
             local tmpPitch, tmpVec
+
             if cTime > 5 then
                 tmpPitch = pitchList[mid]
                 if controlCenter.mode > 2 then
-                    --commands.execAsync(("say cTime=%0.1f"):format(cTime))
                     target.x = target.x + controlCenter.velocity.x * cTime
                     target.y = target.y + controlCenter.velocity.y * cTime
                     target.z = target.z + controlCenter.velocity.z * cTime
@@ -426,9 +426,9 @@ local runCt = function()
                 local allDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2 + tgVec.z ^ 2)
                 local cosP = math.cos(tmpPitch)
                 tmpVec = {
-                    x = _c * (tgVec.x / _c) * cosP,
+                    x = allDis * (tgVec.x / _c) * cosP,
                     y = allDis * math.sin(tmpPitch),
-                    z = _c * (tgVec.z / _c) * cosP
+                    z = allDis * (tgVec.z / _c) * cosP
                 }
             else
                 tmpVec = tgVec
