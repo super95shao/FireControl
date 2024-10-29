@@ -240,7 +240,8 @@ scanner = {
     MONSTER = {"minecraft:zombie", "minecraft:spider", "minecraft:creeper", "minecraft:cave_spider", "minecraft:husk",
                "minecraft:skeleton", "minecraft:wither_skeleton", "minecraft:guardian", "minecraft:phantom",
                "minecraft:pillager", "minecraft:ravager", "minecraft:vex", "minecraft:warden", "minecraft:vindicator",
-               "minecraft:witch", "minecraft:ender_dragon", "minecraft:wither"}
+               "minecraft:witch", "minecraft:ender_dragon", "minecraft:wither", "minecraft:wither_skeleton", "minecraft:hoglin"
+               , "minecraft:piglin", "minecraft:piglin_brute", "minecraft:zoglin", "minecraft:blaze", "minecraft:zombified_piglin"}
 }
 
 scanner.getShips = function()
@@ -331,7 +332,7 @@ scanner.scanEntity = function()
                 scanner.playerList[v.uuid] = v
             else
                 for _, v2 in pairs(scanner.MONSTER) do
-                    if v.type == v2 then
+                    if v.type == v2 and v.health > 0.5 then
                         v.flag = true
                         scanner.monsters[v.uuid] = v
                         break
@@ -634,11 +635,27 @@ function absCoordInputWindow:refresh()
     self.drawW.drawText(46, 80, "++++++++", 0x666666, 0x000000)
     self.drawW.drawText(46, 88, self.tmpPos.z, 0x000000, 0xFFFFFF)
     self.drawW.drawText(46, 96, "++++++++", 0x666666, 0x000000)
+
+    local fireColor = group[self.group.index].autoFire and 0xFF0000 or 0x444444
+    local autoColor = group[self.group.index].autoFire and 0x50B358 or 0xFF0000
+    self.drawW.line(2, 2, 2, 2, autoColor)
+    self.drawW.rectangle(4, 4, 5, 5, fireColor)
+    self.drawW.line(6, 3, 6, 9, fireColor)
+    self.drawW.line(3, 6, 9, 6, fireColor)
+
     self.drawW.sync()
 end
 
 function absCoordInputWindow:click(x, y, button)
-    if x > 36 and x < 94 then
+    if x < 18 and y < 9 then
+        if x <= 4 and y <= 3 then
+            group[self.group.index].autoFire = not group[self.group.index].autoFire
+        end
+        if x < 10 then
+            group[self.group.index].fire = true
+            group[self.group.index].fireCd = 20
+        end
+    elseif x > 36 and x < 94 then
         local index = math.floor((x - 46) / 6 + 1)
         index = index > 8 and 8 or index < 1 and 1 or index
         if y >= 16 and y < 40 then
@@ -1671,6 +1688,7 @@ local events = function()
             end
         elseif event == "tm_monitor_mouse_click" or event == "tm_monitor_mouse_drag" then
             tm_monitors.list[eventData[2]]:click(eventData[3], eventData[4], eventData[5])
+            system.updatePersistentData()
         elseif event == "tm_monitor_mouse_scroll" then
             tm_monitors.list[eventData[2]]:scroll(eventData[3], eventData[4], eventData[5])
         elseif event == "tm_monitor_mouse_move" then
