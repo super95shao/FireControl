@@ -45,6 +45,7 @@ system.reset = function()
         },
         minPitchAngle = -90,
         face = "west",
+        idleFace = "west",
         password = "123456",
         InvertYaw = false,
         InvertPitch = false,
@@ -432,6 +433,18 @@ function cannonUtil:getNextPos(t)
     }
 end
 
+local getVecFromFace = function (face)
+    if face == "west" then
+        return {x = -1, y = 0, z = 0}
+    elseif face == "east" then
+        return {x = 1, y = 0, z = 0}
+    elseif face == "north" then
+        return {x = 0, y = 0, z = -1}
+    elseif face == "south" then
+        return {x = 0, y = 0, z = 1}
+    end
+end
+
 local pitchList = {}
 for i = -90, 90, 0.0375 do
     table.insert(pitchList, math.rad(i))
@@ -469,6 +482,7 @@ local runCt = function()
     while true do
         cannonUtil:getAtt()
 
+        fire = controlCenter.fire
         local omega = RotateVectorByQuat(getConjQuat(ship.getQuaternion()), ship.getOmega())
 
         local nextQ, pNextQ = ship.getQuaternion(), parent.quat
@@ -574,14 +588,13 @@ local runCt = function()
             local localPitch = math.deg(math.asin(localVec.y / math.sqrt(localVec.x ^ 2 + localVec.y ^ 2 + localVec.z ^ 2)))
             if math.abs(localYaw) < yaw_range then
                 --tmpYaw = copysign(yaw_range, tmpYaw)
+                fire = false
                 tmpYaw = 0
             end
 
             if localPitch < properties.minPitchAngle then
                 tmpPitch = 0
                 fire = false
-            else
-                fire = controlCenter.fire
             end
 
             local p, d = getPD()
@@ -599,11 +612,10 @@ local runCt = function()
             rednet.send(YawId, yawSpeed, protocol)
             rednet.send(PitchId, pitchSpeed, protocol)
         else
-            local xP = RotateVectorByQuat(parent.quat, {
-                x = -1,
-                y = 0,
-                z = 0
-            })
+            fire = false
+            local point = getVecFromFace(properties.idleFace)
+            local xP = RotateVectorByQuat(parent.quat, point)
+
             local pq = {
                 w = cannonUtil.quat.w,
                 x = -cannonUtil.quat.x,
@@ -624,10 +636,6 @@ local runCt = function()
             local p, d = getPD()
             local yawSpeed = math.floor(pdCt(resultYaw, omega.y, p, d) + 0.5)
             local pitchSpeed = math.floor(pdCt(resultPitch, -omega.z, p, d) + 0.5)
-
-            if math.abs(resultYaw) or math.abs(resultPitch) > 10 then
-                fire = false
-            end
 
             local YawId, PitchId = getBearId()
             rednet.send(YawId, yawSpeed, protocol)
@@ -878,9 +886,9 @@ local runTerm = function()
         minPitchAngle = newTextField(properties, "minPitchAngle", 17, 8),
         max_rotate_speed = newTextField(properties, "max_rotate_speed", 20, 10),
         lock_yaw_range = newTextField(properties, "lock_yaw_range", 20, 12),
-        cannonOffset_x = newTextField(properties.cannonOffset, "x", 18, 6),
-        cannonOffset_y = newTextField(properties.cannonOffset, "y", 24, 6),
-        cannonOffset_z = newTextField(properties.cannonOffset, "z", 30, 6),
+        cannonOffset_x = newTextField(properties.cannonOffset, "x", 18, 7),
+        cannonOffset_y = newTextField(properties.cannonOffset, "y", 24, 7),
+        cannonOffset_z = newTextField(properties.cannonOffset, "z", 30, 7),
         P = newTextField(properties, "P", 4, 16),
         D = newTextField(properties, "D", 12, 16),
         gravity = newTextField(properties, "gravity", 45, 6),
@@ -913,6 +921,7 @@ local runTerm = function()
         power_on = newSelectBox(properties, "power_on", 2, 12, 3, "top", "left", "right", "front", "back"),
         fire = newSelectBox(properties, "fire", 2, 8, 4, "top", "left", "right", "front", "back"),
         face = newSelectBox(properties, "face", 2, 8, 5, "south", "west", "north", "east"),
+        idleFace = newSelectBox(properties, "idleFace", 1, 8, 6, "south", "west", "north", "east"),
         lock_yaw_face = newSelectBox(properties, "lock_yaw_face", 2, 27, 12, "south", "west", "north", "east"),
         InvertYaw = newSelectBox(properties, "InvertYaw", 1, 41, 13, false, true),
         InvertPitch = newSelectBox(properties, "InvertPitch", 1, 41, 14, false, true)
@@ -949,7 +958,7 @@ local runTerm = function()
                 term.setCursorPos(2, 4)
                 term.write("FIRE: ")
 
-                term.setCursorPos(2, 6)
+                term.setCursorPos(2, 7)
                 term.write("CannonOffset: x=    y=    z=")
                 term.setCursorPos(36, 6)
                 term.write("gravity: ")
@@ -965,6 +974,8 @@ local runTerm = function()
 
                 term.setCursorPos(2, 5)
                 term.write("Face: ")
+                term.setCursorPos(2, 6)
+                term.write("IdleFace: ")
 
                 term.setCursorPos(2, 13)
                 term.write("YawBearId: ")
