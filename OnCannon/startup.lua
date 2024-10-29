@@ -44,7 +44,7 @@ system.reset = function()
         },
         minPitchAngle = -45,
         face = "west",
-        --cannonFace = "west",
+        idleFace = "west",
         password = "123456",
         InvertYaw = false,
         InvertPitch = false,
@@ -471,6 +471,7 @@ end
 local fire = false
 local runCt = function()
     while true do
+        fire = controlCenter.fire
         local tgPitch = 0
         cannonUtil:getAtt()
 
@@ -579,6 +580,7 @@ local runCt = function()
             if math.abs(localYaw) < yaw_range then
                 --tmpYaw = copysign(yaw_range, tmpYaw)
                 tmpYaw = 0
+                fire = false
             end
 
             local p = #properties.P == 0 and 0 or tonumber(properties.P)
@@ -597,7 +599,8 @@ local runCt = function()
             ------self(pitch)-------
             tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
         else
-            local point = getVecFromFace(properties.face)
+            fire = false
+            local point = getVecFromFace(properties.idleFace)
 
             local xP = RotateVectorByQuat(parent.quat, point)
             local pq = {
@@ -612,10 +615,6 @@ local runCt = function()
                 resultYaw = -resultYaw
             end
             local yawSpeed = math.floor(pdCt(resultYaw, omega.y, 1, 2) + 0.5)
-            
-            if math.abs(resultYaw) > 10 then
-                fire = false
-            end
 
             local id = #properties.phyBearID == 0 and 0 or tonumber(properties.phyBearID)
             id = id and id or 0
@@ -625,8 +624,6 @@ local runCt = function()
         if tgPitch < properties.minPitchAngle then
             tgPitch = properties.minPitchAngle
             fire = false
-        else
-            fire = controlCenter.fire
         end
 
         local cannonPitch = cannon.getPitch()
@@ -636,7 +633,7 @@ local runCt = function()
             tgPitch = resetAngelRange(cannonPitch - tgPitch)
         end
 
-        if math.abs(tgPitch) > 5 then
+        if math.abs(tgPitch) > 30 then
             fire = false
         end
 
@@ -923,7 +920,7 @@ local runTerm = function()
         power_on = newSelectBox(properties, "power_on", 2, 12, 3, "top", "left", "right", "front", "back"),
         fire = newSelectBox(properties, "fire", 2, 8, 4, "top", "left", "right", "front", "back"),
         face = newSelectBox(properties, "face", 2, 8, 5, "south", "west", "north", "east"),
-        --cannonFace = newSelectBox(properties, "cannonFace", 1, 14, 6, "south", "west", "north", "east"),
+        idleFace = newSelectBox(properties, "idleFace", 1, 14, 6, "south", "west", "north", "east"),
         lock_yaw_face = newSelectBox(properties, "lock_yaw_face", 2, 27, 12, "south", "west", "north", "east"),
         InvertYaw = newSelectBox(properties, "InvertYaw", 1, 41, 14, false, true),
         InvertPitch = newSelectBox(properties, "InvertPitch", 1, 15, 14, false, true)
@@ -979,7 +976,7 @@ local runTerm = function()
                 term.setCursorPos(2, 5)
                 term.write("Face: ")
                 term.setCursorPos(2, 6)
-                --term.write("cannonFace: ")
+                term.write("idleFace: ")
 
                 term.setCursorPos(2, 14)
                 term.write("InvertPitch: ")
