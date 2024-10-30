@@ -237,7 +237,7 @@ scanner = {
     preEntities = {},
     vsShips = {},
     monsters = {},
-    MONSTER = {"minecraft:zombie", "minecraft:spider", "minecraft:creeper", "minecraft:cave_spider", "minecraft:husk",
+    MONSTER = {"minecraft:zombie", "minecraft:spider", "minecraft:creeper", "minecraft:cave_spider", "minecraft:husk", "minecraft:slime",
                "minecraft:skeleton", "minecraft:wither_skeleton", "minecraft:guardian", "minecraft:phantom",
                "minecraft:pillager", "minecraft:ravager", "minecraft:vex", "minecraft:warden", "minecraft:vindicator",
                "minecraft:witch", "minecraft:ender_dragon", "minecraft:wither", "minecraft:wither_skeleton", "minecraft:hoglin"
