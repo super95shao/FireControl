@@ -532,11 +532,19 @@ local runCt = function()
         if ct > 0 then
             ct = ct - 1
             local target = controlCenter.tgPos
-            target.x = target.x + controlCenter.velocity.x * 8
-            target.y = target.y + controlCenter.velocity.y * 8
-            target.z = target.z + controlCenter.velocity.z * 8
-            --commands.execAsync(("say x=%0.4f, y=%0.4f, z=%0.4f"):format(target.x, target.y, target.z))
             local tgVec = {
+                x = target.x - cannonPos.x,
+                y = target.y - cannonPos.y,
+                z = target.z - cannonPos.z
+            }
+            local tmpT = (500 - math.sqrt(tgVec.x ^ 2 + tgVec.y ^ 2 + tgVec.z ^ 2)) / 500
+            tmpT = tmpT < 0 and 0 or tmpT * 8
+
+            target.x = target.x + controlCenter.velocity.x * tmpT
+            target.y = target.y + controlCenter.velocity.y * tmpT
+            target.z = target.z + controlCenter.velocity.z * tmpT
+
+            tgVec = {
                 x = target.x - cannonPos.x,
                 y = target.y - cannonPos.y,
                 z = target.z - cannonPos.z
