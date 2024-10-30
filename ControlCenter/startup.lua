@@ -1,6 +1,6 @@
 local goggle_link_port = peripheral.find("goggle_link_port")
 
-local system, properties, linkedCannons, scanner, rayCaster, group, cannonState
+local system, properties, linkedCannons, scanner, rayCaster, group, MONSTERLIST
 local linkedgoggles = {}
 local modList = {"HMS", "POINT", "SHIP", "PLAYER", "MONSTER", "ENTITY"}
 local protocol, request_protocol = "CBCNetWork", "CBCcenter"
@@ -13,6 +13,7 @@ system = {
     propFileName = "dat",
     groupFileName = "group",
     linkedCannons = "linkedCannons",
+    monster = "monster",
 
     propFile = nil
 }
@@ -21,6 +22,7 @@ system.init = function()
     properties = system.datFromFile(system.propFileName)
     group = system.datFromFile(system.groupFileName)
     linkedCannons = system.datFromFile(system.linkedCannons)
+    MONSTERLIST = system.datFromFile(system.monster)
     
     system.updatePersistentData()
 end
@@ -46,6 +48,8 @@ system.datFromFile = function (fileName)
             end
         elseif fileName == "linkedCannons" then
             result = tmpFile
+        elseif fileName == "monster" then
+            result = tmpFile
         end
 
         file:close()
@@ -56,6 +60,8 @@ system.datFromFile = function (fileName)
             result = system.resetGroup()
         elseif fileName == "linkedCannons" then
             result = {}
+        elseif fileName == "monster" then
+            result = system.resetMonster()
         end
     end
     
@@ -100,10 +106,19 @@ system.resetGroup = function ()
     return g
 end
 
+system.resetMonster = function ()
+    return {"minecraft:zombie", "minecraft:spider", "minecraft:creeper", "minecraft:cave_spider", "minecraft:husk", "minecraft:slime",
+               "minecraft:skeleton", "minecraft:wither_skeleton", "minecraft:guardian", "minecraft:phantom",
+               "minecraft:pillager", "minecraft:ravager", "minecraft:vex", "minecraft:warden", "minecraft:vindicator",
+               "minecraft:witch", "minecraft:ender_dragon", "minecraft:wither", "minecraft:wither_skeleton", "minecraft:hoglin"
+               , "minecraft:piglin", "minecraft:piglin_brute", "minecraft:zoglin", "minecraft:blaze", "minecraft:zombified_piglin"}
+end
+
 system.updatePersistentData = function()
     system.write(system.propFileName, properties)
     system.write(system.groupFileName, group)
     system.write(system.linkedCannons, linkedCannons)
+    system.write(system.monster, MONSTERLIST)
 end
 
 system.write = function(file, obj)
@@ -236,12 +251,7 @@ scanner = {
     entities = {},
     preEntities = {},
     vsShips = {},
-    monsters = {},
-    MONSTER = {"minecraft:zombie", "minecraft:spider", "minecraft:creeper", "minecraft:cave_spider", "minecraft:husk", "minecraft:slime",
-               "minecraft:skeleton", "minecraft:wither_skeleton", "minecraft:guardian", "minecraft:phantom",
-               "minecraft:pillager", "minecraft:ravager", "minecraft:vex", "minecraft:warden", "minecraft:vindicator",
-               "minecraft:witch", "minecraft:ender_dragon", "minecraft:wither", "minecraft:wither_skeleton", "minecraft:hoglin"
-               , "minecraft:piglin", "minecraft:piglin_brute", "minecraft:zoglin", "minecraft:blaze", "minecraft:zombified_piglin"}
+    monsters = {}
 }
 
 scanner.getShips = function()
@@ -331,7 +341,7 @@ scanner.scanEntity = function()
                 v.flag = true
                 scanner.playerList[v.uuid] = v
             else
-                for _, v2 in pairs(scanner.MONSTER) do
+                for _, v2 in pairs(MONSTERLIST) do
                     if v.type == v2 and v.health > 0.5 then
                         v.flag = true
                         scanner.monsters[v.uuid] = v
