@@ -622,7 +622,14 @@ local runCt = function()
             tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
         else
             fire = false
+            local yPoint = RotateVectorByQuat(parent.quat,{x=0, y=1, z=0})
             local point = getVecFromFace(properties.idleFace)
+
+            if yPoint.y > 0 then
+                point = getVecFromFace(properties.idleFace)
+            else
+                point = { x= -point.x, y=-point.y, z=-point.z}
+            end
 
             local xP = RotateVectorByQuat(parent.quat, point)
             local pq = {
@@ -632,14 +639,17 @@ local runCt = function()
                 z = -cannonUtil.quat.z
             }
             local xP2 = RotateVectorByQuat(pq, xP)
+            
             local resultYaw = -math.deg(math.atan2(xP2.z, -xP2.x))
             if properties.InvertYaw then
                 resultYaw = -resultYaw
             end
+            
             local yawSpeed = math.floor(pdCt(resultYaw, omega.y, 1, 2) + 0.5)
 
             local id = #properties.phyBearID == 0 and 0 or tonumber(properties.phyBearID)
             id = id and id or 0
+            
             rednet.send(id, yawSpeed, protocol)
         end
 
