@@ -636,7 +636,13 @@ local runCt = function()
             rednet.send(PitchId, pitchSpeed, protocol)
         else
             fire = false
+            local yPoint = RotateVectorByQuat(parent.quat,{x=0, y=1, z=0})
             local point = getVecFromFace(properties.idleFace)
+            if yPoint.y > 0 then
+                point = getVecFromFace(properties.idleFace)
+            else
+                point = { x= -point.x, y=-point.y, z=-point.z}
+            end
             local xP = RotateVectorByQuat(parent.quat, point)
 
             local pq = {
