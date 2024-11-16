@@ -375,9 +375,23 @@ local listener = function()
     end
 end
 
+local box_1 = peripheral.find("gtceu:lv_super_chest")
+box_1 = box_1 and box_1 or peripheral.find("gtceu:mv_super_chest")
+box_1 = box_1 and box_1 or peripheral.find("gtceu:hv_super_chest")
+box_1 = box_1 and box_1 or peripheral.find("gtceu:ev_super_chest")
+local box_2 = peripheral.find("create:depot")
+
 local sendRequest = function()
+    local bullets_count = 0
     local slug = ship and ship.getName() or nil
     while true do
+        bullets_count = 0
+        if box_2 and box_2.getItemDetail(1) then
+            bullets_count = bullets_count + box_2.getItemDetail(1).count
+        end
+        if box_1 and box_1.getItemDetail(1) then
+            bullets_count = bullets_count + box_1.getItemDetail(1).count
+        end
         local controlCenterId = #properties.controlCenterId == 0 and 0 or tonumber(properties.controlCenterId)
         controlCenterId = controlCenterId and controlCenterId or 0
         rednet.send(controlCenterId, {
@@ -386,6 +400,7 @@ local sendRequest = function()
             slug = slug,
             yawSlug = parent.slug,
             pitchSlug = pitchParent.slug,
+            bullets_count = bullets_count
         }, request_protocol)
         sleep(1)
     end
