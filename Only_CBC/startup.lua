@@ -117,14 +117,67 @@ local RotateVectorByQuat = function(quat, v)
     res.z = (xz - wy) * v.x + (yz + wx) * v.y + (1.0 - (xx + yy)) * v.z
     return res
 end
-
-local getConjQuat = function(q)
+local negaQ = function(q)
     return {
         w = q.w,
         x = -q.x,
         y = -q.y,
-        z = -q.z,
+        z = -q.z
     }
+end
+
+local matrixMultiplication_3d = function (m, v)
+    return {
+        x = m[1][1] * v.x + m[1][2] * v.y + m[1][3] * v.z,
+        y = m[2][1] * v.x + m[2][2] * v.y + m[2][3] * v.z,
+        z = m[3][1] * v.x + m[3][2] * v.y + m[3][3] * v.z
+    }
+end
+
+local newVec = function()
+    return {
+        x = 0,
+        y = 0,
+        z = 0
+    }
+end
+local newQuat = function ()
+    return {
+        w = 1,
+        x = 0,
+        y = 0,
+        z = 0
+    }
+end
+local normVector = function(v)
+    local l = math.sqrt(v.x ^ 2 + v.y ^ 2 + v.z ^ 2)
+    if l == 0 then
+        return newVec()
+    else
+        local result = {}
+        result.x = v.x / l
+        result.y = v.y / l
+        result.z = v.z / l
+        return result
+    end
+end
+local vector_scale = function (v, s)
+    return {
+        x = v.x * s,
+        y = v.y * s,
+        z = v.z * s
+    }
+end
+local getVecFromFace = function (face)
+    if face == "west" then
+        return {x = -1, y = 0, z = 0}
+    elseif face == "east" then
+        return {x = 1, y = 0, z = 0}
+    elseif face == "north" then
+        return {x = 0, y = 0, z = -1}
+    elseif face == "south" then
+        return {x = 0, y = 0, z = 1}
+    end
 end
 
 local copysign = function(num1, num2)
@@ -292,34 +345,53 @@ local listener = function()
     end
 end
 
+local cross_point = newVec()
 local box_1 = peripheral.find("gtceu:lv_super_chest")
 box_1 = box_1 and box_1 or peripheral.find("gtceu:mv_super_chest")
 box_1 = box_1 and box_1 or peripheral.find("gtceu:hv_super_chest")
 box_1 = box_1 and box_1 or peripheral.find("gtceu:ev_super_chest")
 local box_2 = peripheral.find("create:depot")
-
-local sendRequest = function()
-    local bullets_count = 0
-    local slug = ship and ship.getName() or nil
+local bullets_count = 0
+local getBullets_count = function ()
     while true do
-        bullets_count = 0
+        local box_1_count, box_2_count = 0, 0
         if box_2 and box_2.getItemDetail(1) then
-            bullets_count = bullets_count + box_2.getItemDetail(1).count
+            box_2_count = box_2.getItemDetail(1).count
         end
         if box_1 and box_1.getItemDetail(1) then
-            bullets_count = bullets_count + box_1.getItemDetail(1).count
+            box_1_count = box_1.getItemDetail(1).count
         end
-
-        local controlCenterId = #properties.controlCenterId == 0 and 0 or tonumber(properties.controlCenterId)
-        controlCenterId = controlCenterId and controlCenterId or 0
-        rednet.send(controlCenterId, { name = properties.cannonName, pw = properties.password, slug = slug, bullets_count = bullets_count }, request_protocol)
-        sleep(1)
+        bullets_count = box_1_count + box_2_count
+        if not box_1 and not box_2 then
+            sleep(0.05)
+        end
     end
 end
 
-local runListener = function()
-    parallel.waitForAll(sendRequest, listener)
+local sendRequest = function()
+    local slug = ship and ship.getName() or nil
+    while true do
+        local controlCenterId = #properties.controlCenterId == 0 and 0 or tonumber(properties.controlCenterId)
+        controlCenterId = controlCenterId and controlCenterId or 0
+        rednet.send(controlCenterId, {
+            name = properties.cannonName,
+            pw = properties.password,
+            slug = slug,
+            bullets_count = bullets_count,
+            cross_point = cross_point
+        }, request_protocol)
+        sleep(0.05)
+    end
 end
+
+local run_msgSend = function ()
+    parallel.waitForAll(sendRequest, getBullets_count)
+end
+
+local runListener = function()
+    parallel.waitForAll(run_msgSend, listener)
+end
+
 
 local quatList = {
     west  = { w = -1, x = 0, y = 0, z = 0 },
@@ -391,7 +463,7 @@ local fire = false
 local runCt = function()
     while true do
         cannonUtil:getAtt()
-        local omega = RotateVectorByQuat(getConjQuat(ship.getQuaternion()), ship.getOmega())
+        local omega = RotateVectorByQuat(negaQ(ship.getQuaternion()), ship.getOmega())
         local yawSpeed, pitchSpeed
         local tgPitch = 0
         local MAX_ROTATE_SPEED = properties.max_rotate_speed
@@ -484,13 +556,13 @@ local runCt = function()
                 for i = 1, count, 1 do
                     nextQ = quatMultiply(nextQ, omegaQuat)
                 end
-                rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], getConjQuat(nextQ)), tmpVec)
+                rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], negaQ(nextQ)), tmpVec)
             else
-                rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion())), tmpVec)
+                rot = RotateVectorByQuat(quatMultiply(quatList[properties.face], negaQ(ship.getQuaternion())), tmpVec)
             end
 
             local tmpYaw = math.deg(math.atan2(rot.z, -rot.x))
-            local localVec = RotateVectorByQuat(quatMultiply(quatList[properties.lock_yaw_face], getConjQuat(ship.getQuaternion())), tmpVec)
+            local localVec = RotateVectorByQuat(quatMultiply(quatList[properties.lock_yaw_face], negaQ(ship.getQuaternion())), tmpVec)
 
             local yaw_range = #properties.lock_yaw_range == 0 and 0 or tonumber(properties.lock_yaw_range)
             yaw_range = yaw_range and yaw_range or 0
@@ -516,11 +588,36 @@ local runCt = function()
 
             ------self(pitch)-------
             tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
+            local tgDis = math.sqrt(tmpVec.x ^ 2 + tmpVec.y ^ 2 + tmpVec.z ^ 2)
+            local tgPoint = vector_scale(getVecFromFace(properties.face), -tgDis)
+
+            local p_angle = math.rad(cannon.pitch) / 2
+            local pitchQuat = {
+                w = math.cos(p_angle),
+                x = 0,
+                y = 0,
+                z = math.sin(p_angle)
+            }
+
+            local y_angle = -math.rad(cannon.yaw) / 2
+            local yawQuat = {
+                w = math.cos(y_angle),
+                x = 0,
+                y = math.sin(y_angle),
+                z = 0
+            }
+            cross_point = RotateVectorByQuat(quatMultiply(pitchQuat, yawQuat), tgPoint)
+            cross_point = RotateVectorByQuat(ship.getQuaternion(), cross_point)
+            local selfpos = cannonUtil:getNextPos(1)
+            cross_point.x = cross_point.x + selfpos.x
+            cross_point.y = cross_point.y + selfpos.y
+            cross_point.z = cross_point.z + selfpos.z
         else
             local tmpYaw = properties.InvertYaw and cannon.yaw or -cannon.yaw
             tmpYaw = math.abs(tmpYaw) > 0.01875 and tmpYaw or 0
             yawSpeed = math.floor(tmpYaw * ANGLE_TO_SPEED / 2 + 0.5)
             yawSpeed = math.abs(yawSpeed) < MAX_ROTATE_SPEED and yawSpeed or copysign(MAX_ROTATE_SPEED, yawSpeed)
+            cross_point = nil
         end
 
         if tgPitch < properties.minPitchAngle then
