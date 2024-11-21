@@ -413,6 +413,9 @@ local getBullets_count = function ()
             box_1_count = box_1.getItemDetail(1).count
         end
         bullets_count = box_1_count + box_2_count
+        if not box_1 and not box_2 then
+            sleep(0.05)
+        end
     end
 end
 
@@ -427,8 +430,7 @@ local sendRequest = function()
             slug = slug,
             yawSlug = parent.slug,
             bullets_count = bullets_count,
-            cross_point = cross_point,
-            cannonPos = cannonPos
+            cross_point = cross_point
         }, request_protocol)
         sleep(0.05)
     end
@@ -652,7 +654,6 @@ local runCt = function()
             yaw_range = yaw_range and yaw_range or 0
             local localYaw = -math.deg(math.atan2(localVec.z, -localVec.x))
             if math.abs(localYaw) < yaw_range then
-                --tmpYaw = copysign(yaw_range, tmpYaw)
                 tmpYaw = 0
                 fire = false
             end
@@ -672,30 +673,30 @@ local runCt = function()
 
             ------self(pitch)-------
             tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
-                local tgDis = math.sqrt(tmpVec.x ^ 2 + tmpVec.y ^ 2 + tmpVec.z ^ 2)
-                local tgPoint = vector_scale(getVecFromFace(properties.face), -tgDis)
+            local tgDis = math.sqrt(tmpVec.x ^ 2 + tmpVec.y ^ 2 + tmpVec.z ^ 2)
+            local tgPoint = vector_scale(getVecFromFace(properties.face), -tgDis)
 
-                local w_axis = {
-                    x = math.sqrt(tgPoint.x ^ 2 + tgPoint.z ^ 2),
-                    y = tgPoint.y
-                }
+            local w_axis = {
+                x = math.sqrt(tgPoint.x ^ 2 + tgPoint.z ^ 2),
+                y = tgPoint.y
+            }
     
-                local p_angle = -math.rad(cannonPitch)
-                local m = {
-                    {math.cos(p_angle), math.sin(p_angle)},
-                    {-math.sin(p_angle), math.cos(p_angle)}
-                }
-                w_axis = matrixMultiplication(m, w_axis)
-                local y_a = math.atan2(tgPoint.x, tgPoint.z)
-                tgPoint.y = w_axis.y
-                tgPoint.x = math.sin(y_a) * w_axis.x
-                tgPoint.z = math.cos(y_a) * w_axis.x
+            local p_angle = -math.rad(cannonPitch)
+            local m = {
+                {math.cos(p_angle), math.sin(p_angle)},
+                {-math.sin(p_angle), math.cos(p_angle)}
+            }
+            w_axis = matrixMultiplication(m, w_axis)
+            local y_a = math.atan2(tgPoint.x, tgPoint.z)
+            tgPoint.y = w_axis.y
+            tgPoint.x = math.sin(y_a) * w_axis.x
+            tgPoint.z = math.cos(y_a) * w_axis.x
 
-                cross_point = RotateVectorByQuat(ship.getQuaternion(), tgPoint)
+            cross_point = RotateVectorByQuat(ship.getQuaternion(), tgPoint)
     
-                cross_point.x = cannonUtil.pos.x + cross_point.x
-                cross_point.y = cannonUtil.pos.y + cross_point.y
-                cross_point.z = cannonUtil.pos.z + cross_point.z
+            cross_point.x = cannonUtil.pos.x + cross_point.x
+            cross_point.y = cannonUtil.pos.y + cross_point.y
+            cross_point.z = cannonUtil.pos.z + cross_point.z
         else
             fire = false
             local point = getVecFromFace(properties.idleFace)
