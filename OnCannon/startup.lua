@@ -132,6 +132,80 @@ local negaQ = function(q)
     }
 end
 
+local vector = {}
+local newVec = function (x, y, z)
+    if type(x) == "table" then
+        return setmetatable({ x = x.x, y = x.y, z = x.z}, { __index = vector })
+    elseif x and y and z then
+        return setmetatable({ x = x, y = y, z = z}, { __index = vector})
+    else
+        return setmetatable({ x = 0, y = 0, z = 0}, { __index = vector})
+    end
+end
+
+function vector:zero()
+    self.x = 0
+    self.y = 0
+    self.z = 0
+    return self
+end
+
+function vector:copy()
+    return newVec(self.x, self.y, self.z)
+end
+
+function vector:len()
+    return math.sqrt(self.x ^ 2 + self.y ^ 2 + self.z ^ 2)
+end
+
+function vector:norm()
+    local l = self:len()
+    if l == 0 then
+        self:zero()
+    else
+        self.x = self.x / l
+        self.y = self.y / l
+        self.z = self.z / l
+    end
+    return self
+end
+
+function vector:nega()
+    self.x = -self.x
+    self.y = -self.y
+    self.z = -self.z
+    return self
+end
+
+function vector:add(v)
+    self.x = self.x + v.x
+    self.y = self.y + v.y
+    self.z = self.z + v.z
+    return self
+end
+
+function vector:sub(v)
+    self.x = self.x - v.x
+    self.y = self.y - v.y
+    self.z = self.z - v.z
+    return self
+end
+
+function vector:scale(num)
+    self.x = self.x * num
+    self.y = self.y * num
+    self.z = self.z * num
+    return self
+end
+
+function vector:unpack()
+    return self.x, self.y, self.z
+end
+
+local unpackVec = function(v)
+    return v.x, v.y, v.z
+end
+
 local matrixMultiplication_3d = function (m, v)
     return {
         x = m[1][1] * v.x + m[1][2] * v.y + m[1][3] * v.z,
@@ -140,13 +214,6 @@ local matrixMultiplication_3d = function (m, v)
     }
 end
 
-local newVec = function()
-    return {
-        x = 0,
-        y = 0,
-        z = 0
-    }
-end
 local newQuat = function ()
     return {
         w = 1,
@@ -154,18 +221,6 @@ local newQuat = function ()
         y = 0,
         z = 0
     }
-end
-local normVector = function(v)
-    local l = math.sqrt(v.x ^ 2 + v.y ^ 2 + v.z ^ 2)
-    if l == 0 then
-        return newVec()
-    else
-        local result = {}
-        result.x = v.x / l
-        result.y = v.y / l
-        result.z = v.z / l
-        return result
-    end
 end
 
 local quatList = {
@@ -450,6 +505,26 @@ local cannonUtil = {
     velocity = newVec()
 }
 
+local gatMatrixFromFaceVec = function (v)
+    return {
+        {v.x, 0, v.z},
+        {0, 1, 0},
+        {-v.z, 0, v.x},
+    }
+end
+
+local getVecFromFace = function (face)
+    if face == "west" then
+        return newVec(-1, 0, 0)
+    elseif face == "east" then
+        return newVec(1, 0, 0)
+    elseif face == "north" then
+        return newVec(0, 0, -1)
+    elseif face == "south" then
+        return newVec(0, 0, 1)
+    end
+end
+
 function cannonUtil:getAtt()
     self.pos = getCannonPos()
     if ship then
@@ -467,7 +542,7 @@ function cannonUtil:getAtt()
         }
     end
 
-    self.quat = quatMultiply(quatList[properties.face], ship.getQuaternion())
+    self.matrix = gatMatrixFromFaceVec(getVecFromFace(properties.face))
 end
 
 function cannonUtil:setPreAtt()
@@ -480,18 +555,6 @@ function cannonUtil:getNextPos(t)
         y = self.pos.y + self.velocity.y * t,
         z = self.pos.z + self.velocity.z * t
     }
-end
-
-local getVecFromFace = function (face)
-    if face == "west" then
-        return {x = -1, y = 0, z = 0}
-    elseif face == "east" then
-        return {x = 1, y = 0, z = 0}
-    elseif face == "north" then
-        return {x = 0, y = 0, z = -1}
-    elseif face == "south" then
-        return {x = 0, y = 0, z = 1}
-    end
 end
 
 local pitchList = {}
@@ -689,8 +752,12 @@ local runCt = function()
             w_axis = matrixMultiplication(m, w_axis)
             local y_a = math.atan2(tgPoint.x, tgPoint.z)
             tgPoint.y = w_axis.y
-            tgPoint.x = math.sin(y_a) * w_axis.x
-            tgPoint.z = math.cos(y_a) * w_axis.x
+            tgPoint.x = -math.sin(y_a) * w_axis.x
+            tgPoint.z = -math.cos(y_a) * w_axis.x
+            if properties.InvertYaw then
+                tgPoint.x = -tgPoint.x
+                tgPoint.z = -tgPoint.z
+            end
 
             cross_point = RotateVectorByQuat(ship.getQuaternion(), tgPoint)
     
