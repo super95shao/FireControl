@@ -25,7 +25,3 @@ The following mods are not mandatory, but recommended to install
 * Create: Interactive
 * UnlimitedPeripheralWorks(推荐，提供外设代理-无线外设) (reason: peripheral proxy)
 * Some Peripherals (火控的头瞄模式2支持Raycast眼镜) (Fire control head aiming mode 2 supports Raycast goggles)
-
-
-### 我不是专业的程序员，代码可能看起来像一坨屎山。但欢迎提出意见
-### I'm not a professional programmer and the code may look like a mountain of shit. But your comments are welcome
