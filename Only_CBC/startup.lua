@@ -161,7 +161,7 @@ local normVector = function(v)
         return result
     end
 end
-local vector_scale = function (v, s)
+function vector.scale(v, s)
     return {
         x = v.x * s,
         y = v.y * s,
@@ -249,6 +249,10 @@ local getCannonPos = function()
     }
 end
 
+function math.lerp(a, b, t)
+    return a + (b - a) * t
+end
+
 local pdCt = function(tgYaw, omega, p, d)
     local result = tgYaw * p + omega * d
     return math.abs(result) > properties.max_rotate_speed and copysign(properties.max_rotate_speed, result) or result
@@ -261,7 +265,7 @@ end
 local getTime = function(dis, pitch)
     local barrelLength = #properties.barrelLength == 0 and 0 or tonumber(properties.barrelLength)
     barrelLength = barrelLength and barrelLength or 0
-    local cosP = math.cos(pitch)
+    local cosP = math.abs(math.cos(pitch))
     dis = dis - barrelLength * cosP
 
     local v0 = #properties.velocity == 0 and 0 or tonumber(properties.velocity) / 20
@@ -302,33 +306,39 @@ local getY2 = function(t, y0, pitch)
         drag = 1
     end
     local index = 1
-    while index < t do
+    local last = 0
+    while index < t + 1 do
         y0 = y0 + Vy
         Vy = drag * Vy - grav
+        if index == math.floor(t) then
+            last = y0
+        end
         index = index + 1
     end
-
-    return y0
+    
+    return math.lerp(last, y0, t % math.floor(t))
 end
 
 local ag_binary_search = function(arr, xDis, y0, yDis)
     local low = 1
     local high = #arr
     local mid, time
+    local pitch, result = 0, 0
     while low <= high do
         mid = math.floor((low + high) / 2)
-        local pitch = arr[mid]
+        pitch = arr[mid]
         time = getTime(xDis, pitch)
-        local result = yDis - getY2(time, y0, pitch)
+        result = yDis - getY2(time, y0, pitch)
         if result >= -0.018 and result <= 0.018 then
-            return mid, time
+            break
+            --return mid, time
         elseif result > 0 then
             low = mid + 1
         else
             high = mid - 1
         end
     end
-    return mid, time
+    return pitch, time
 end
 
 local controlCenter = { tgPos = { x = 0, y = 0, z = 0 }, velocity = { x = 0, y = 0, z = 0 }, mode = 2, fire = false }
@@ -477,6 +487,7 @@ local runCt = function()
                 genParticle(cannonPos.x, cannonPos.y, cannonPos.z)
             end
             local target = controlCenter.tgPos
+            target.y = target.y + 0.5
             local tgVec = {
                 x = target.x - cannonPos.x,
                 y = target.y - cannonPos.y,
@@ -497,11 +508,10 @@ local runCt = function()
             --genParticle(cannonPos.x, cannonPos.y, cannonPos.z)
 
             local xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
-            local mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
-            local tmpPitch, tmpVec
+            local tmpPitch, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
+            local tmpVec
 
             if cTime > 5 then
-                tmpPitch = pitchList[mid]
                 if controlCenter.mode > 2 then
                     target.x = target.x + controlCenter.velocity.x * cTime
                     target.y = target.y + controlCenter.velocity.y * cTime
@@ -512,8 +522,7 @@ local runCt = function()
                         z = target.z - cannonPos.z
                     }
                     xDis = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
-                    mid, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
-                    tmpPitch = pitchList[mid]
+                    tmpPitch, cTime = ag_binary_search(pitchList, xDis, 0, tgVec.y)
                 end
 
                 local _c = math.sqrt(tgVec.x ^ 2 + tgVec.z ^ 2)
@@ -589,7 +598,7 @@ local runCt = function()
             ------self(pitch)-------
             tgPitch = math.deg(math.asin(rot.y / math.sqrt(rot.x ^ 2 + rot.y ^ 2 + rot.z ^ 2)))
             local tgDis = math.sqrt(tmpVec.x ^ 2 + tmpVec.y ^ 2 + tmpVec.z ^ 2)
-            local tgPoint = vector_scale(getVecFromFace(properties.face), -tgDis)
+            local tgPoint = vector.scale(getVecFromFace(properties.face), -tgDis)
 
             local p_angle = math.rad(cannon.pitch) / 2
             local pitchQuat = {
