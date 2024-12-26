@@ -1336,9 +1336,9 @@ local getGoggles = function()
                             if not v.targetPos then
                                 v.y = v.y + 1.75
                                 v.targetPos = rayCaster.run(v, {
-                                    x = v.raw_euler_x,
-                                    y = v.raw_euler_y,
-                                    z = v.raw_euler_z
+                                    x = v.viewVector.x,
+                                    y = v.viewVector.y,
+                                    z = v.viewVector.z
                                 }, dis, false)
                             end
 
