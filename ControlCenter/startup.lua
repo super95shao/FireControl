@@ -2,7 +2,7 @@ local goggle_link_port = peripheral.find("goggle_link_port")
 
 local system, properties, linkedCannons, scanner, rayCaster, group, MONSTERLIST
 local linkedgoggles = {}
-local modList = {"HMS", "POINT", "SHIP", "PLAYER", "MONSTER", "ENTITY"}
+local modList = {"HMS", "POINT", "SHIP", "PLAYER", "MONSTER"}
 local protocol, request_protocol = "CBCNetWork", "CBCcenter"
 
 local tm_monitors = {
@@ -214,6 +214,79 @@ local genStr = function(s, count)
     end
     return result
 end
+local vector = {}
+local newVec = function (x, y, z)
+    if type(x) == "table" then
+        return setmetatable({ x = x.x, y = x.y, z = x.z}, { __index = vector })
+    elseif x and y and z then
+        return setmetatable({ x = x, y = y, z = z}, { __index = vector})
+    else
+        return setmetatable({ x = 0, y = 0, z = 0}, { __index = vector})
+    end
+end
+
+function vector:zero()
+    self.x = 0
+    self.y = 0
+    self.z = 0
+    return self
+end
+
+function vector:copy()
+    return newVec(self.x, self.y, self.z)
+end
+
+function vector:len()
+    return math.sqrt(self.x ^ 2 + self.y ^ 2 + self.z ^ 2)
+end
+
+function vector:norm()
+    local l = self:len()
+    if l == 0 then
+        self:zero()
+    else
+        self.x = self.x / l
+        self.y = self.y / l
+        self.z = self.z / l
+    end
+    return self
+end
+
+function vector:nega()
+    self.x = -self.x
+    self.y = -self.y
+    self.z = -self.z
+    return self
+end
+
+function vector:add(v)
+    self.x = self.x + v.x
+    self.y = self.y + v.y
+    self.z = self.z + v.z
+    return self
+end
+
+function vector:sub(v)
+    self.x = self.x - v.x
+    self.y = self.y - v.y
+    self.z = self.z - v.z
+    return self
+end
+
+function vector:scale(num)
+    self.x = self.x * num
+    self.y = self.y * num
+    self.z = self.z * num
+    return self
+end
+
+function vector:unpack()
+    return self.x, self.y, self.z
+end
+
+local unpackVec = function(v)
+    return v.x, v.y, v.z
+end
 
 rayCaster = {
     block = nil
@@ -246,28 +319,89 @@ rayCaster.run = function(start, v3Speed, range, showParticle)
 end
 
 scanner = {
+    vsShips = {},
+    monsters = {},
+    players = {},
     commander = {},
-    playerList = {},
+    preMonster = {},
+    preplayers = {},
     entities = {},
     preEntities = {},
-    vsShips = {},
-    monsters = {}
 }
 
-scanner.getShips = function()
+function scanner:getPlayer(range)
+    self.players = coordinate.getPlayers(range)
+
+    for k, v in pairs(self.preplayers) do
+        v.flag = false
+    end
+
+    if self.players ~= nil then
+        for k, v in pairs(self.players) do
+            if scanner.preplayers[k] then
+                v.velocity = {
+                    x = v.x - scanner.preplayers[v.uuid].x,
+                    y = v.y - scanner.preplayers[v.uuid].y,
+                    z = v.z - scanner.preplayers[v.uuid].z
+                }
+            else
+                v.velocity = newVec()
+            end
+            v.flag = true
+            scanner.preplayers[v.uuid] = v
+        end
+    end
+
+    for k, v in pairs(self.preplayers) do
+        if not v.flag then
+            self.preplayers[k] = nil
+        end
+    end
+
+    return self.players
+end
+
+function scanner:getMonster(scope)
+    self.monsters = coordinate.getMonster(scope)
+
+    for k, v in pairs(self.preMonster) do
+        v.flag = false
+    end
+
+    if scanner.monsters ~= nil then
+        for k, v in pairs(scanner.monsters) do
+            if scanner.preMonster[k] then
+                v.velocity = {
+                    x = v.x - scanner.preMonster[v.uuid].x,
+                    y = v.y - scanner.preMonster[v.uuid].y,
+                    z = v.z - scanner.preMonster[v.uuid].z
+                }
+            else
+                v.velocity = newVec()
+            end
+            v.flag = true
+            scanner.preMonster[v.uuid] = v
+        end
+    end
+
+    for k, v in pairs(self.preMonster) do
+        if not v.flag then
+            self.preMonster[k] = nil
+        end
+    end
+
+    return self.monsters
+end
+
+function scanner:getShips(range)
     if not coordinate then
         return
     end
-    local ships = coordinate.getShips(2500)
-
-    local flagEmpty = true
-    for k, v in pairs(ships) do
-        flagEmpty = false
-        break
-    end
-
-    if flagEmpty then
-        ships = coordinate.getShipsAll(2500)
+    local ships
+    if dimension == "overworld" then
+        ships = coordinate.getShips(range)
+    else
+        ships = coordinate.getShipsAll(range)
     end
 
     for k, v in pairs(scanner.vsShips) do
@@ -275,11 +409,11 @@ scanner.getShips = function()
     end
 
     for k, v in pairs(ships) do
-        if scanner.vsShips[v.slug] then
+        if scanner.vsShips[v.id] then
             v.velocity = {
-                x = v.x - scanner.vsShips[v.slug].x,
-                y = v.y - scanner.vsShips[v.slug].y,
-                z = v.z - scanner.vsShips[v.slug].z
+                x = v.x - scanner.vsShips[v.id].x,
+                y = v.y - scanner.vsShips[v.id].y,
+                z = v.z - scanner.vsShips[v.id].z
             }
         else
             v.velocity = {
@@ -289,7 +423,8 @@ scanner.getShips = function()
             }
         end
         v.flag = true
-        scanner.vsShips[v.slug] = v
+        v.name = v.slug
+        scanner.vsShips[v.id] = v
     end
 
     for k, v in pairs(scanner.vsShips) do
@@ -297,81 +432,18 @@ scanner.getShips = function()
             scanner.vsShips[k] = nil
         end
     end
+    return scanner.vsShips
 end
 
-scanner.scanEntity = function()
-    if not coordinate then
-        return
-    end
-    local ett = coordinate.getEntities(-1)
-    local flagEmpty = true
-    for k, v in pairs(ett) do
-        flagEmpty = false
-        break
-    end
-
-    if flagEmpty then
-        ett = coordinate.getEntitiesAll(-1)
-    end
-
-    scanner.entities = ett
-    if ett ~= nil then
-        for k, v in pairs(scanner.playerList) do
-            v.flag = false
-        end
-        for k, v in pairs(scanner.monsters) do
-            v.flag = false
-        end
-
-        for k, v in pairs(ett) do
-            if scanner.preEntities[v.uuid] then
-                v.velocity = {
-                    x = v.x - scanner.preEntities[v.uuid].x,
-                    y = v.y - scanner.preEntities[v.uuid].y,
-                    z = v.z - scanner.preEntities[v.uuid].z
-                }
-            else
-                v.velocity = {
-                    x = 0,
-                    y = 0,
-                    z = 0
-                }
-            end
-            if v.isPlayer then
-                v.flag = true
-                scanner.playerList[v.uuid] = v
-            else
-                for _, v2 in pairs(MONSTERLIST) do
-                    if v.type == v2 and v.health > 0.5 then
-                        v.flag = true
-                        scanner.monsters[v.uuid] = v
-                        break
-                    end
-                end
-            end
-        end
-
-        for k, v in pairs(scanner.playerList) do
-            if not v.flag then
-                scanner.playerList[k] = nil
-            end
-        end
-        for k, v in pairs(scanner.monsters) do
-            if not v.flag then
-                scanner.monsters[k] = nil
-            end
-        end
-        scanner.preEntities = {}
-        for k, v in pairs(ett) do
-            scanner.preEntities[v.uuid] = v
-        end
-    end
+function scanner:getAllTarget()
+    self:getPlayer(properties.raycastRange)
+    self:getMonster(properties.raycastRange)
+    self:getShips(properties.raycastRange)
 end
 
 scanner.run = function()
     while true do
-        scanner.getShips()
-        scanner.scanEntity()
+        scanner:getAllTarget()
 
         for k, v in pairs(tm_monitors.list) do -- 刷新所有处于雷达界面的窗口
             for k2, v2 in pairs(v.windows) do
@@ -404,9 +476,9 @@ scanner.run = function()
         for k, v in pairs(group) do
             local kk1
             if v.mode == 3 then kk1 = "vsShips"
-            elseif v.mode == 4 then kk1 = "playerList"
+            elseif v.mode == 4 then kk1 = "players"
             elseif v.mode == 5 then kk1 = "monsters"
-            elseif v.mode == 6 then kk1 = "entities"
+            --elseif v.mode == 6 then kk1 = "entities"
             end
 
             local kk2 = kk1 == "vsShips" and "slug" or "uuid"
@@ -737,7 +809,7 @@ function absHmsSelectWindow:refresh()
     local index = 1
     local tgtb
     if group[self.group.index].HmsMode == 1 then
-        tgtb = scanner.playerList
+        tgtb = scanner.players
     else
         tgtb = linkedgoggles
     end
@@ -794,7 +866,7 @@ function absHmsSelectWindow:click(x, y, button)
         local index = math.floor((y - self.yStart) / 8 + 1)
         local tgtb
         if group[self.group.index].HmsMode == 1 then
-            tgtb = scanner.playerList
+            tgtb = scanner.players
         else
             tgtb = linkedgoggles
         end
@@ -1061,7 +1133,7 @@ function absWindow:init()
         drawW = self.drawW.createWindow(65, 8, 128, 120),
         group = self.group,
         tgTb = scanner,
-        tgK = "playerList"
+        tgK = "players"
     }, {
         __index = absShipRadarWindow
     })
@@ -1073,14 +1145,14 @@ function absWindow:init()
     }, {
         __index = absShipRadarWindow
     })
-    self.windows.entitiesRadar = setmetatable({
-        drawW = self.drawW.createWindow(65, 8, 128, 120),
-        group = self.group,
-        tgTb = scanner,
-        tgK = "entities"
-    }, {
-        __index = absShipRadarWindow
-    })
+    --self.windows.entitiesRadar = setmetatable({
+    --    drawW = self.drawW.createWindow(65, 8, 128, 120),
+    --    group = self.group,
+    --    tgTb = scanner,
+    --    tgK = "entities"
+    --}, {
+    --    __index = absShipRadarWindow
+    --})
 
     self:refresh()
 end
@@ -1108,8 +1180,8 @@ function absWindow:click(x, y, button)
                 self.windows.playerRadar:click(x - 64, y - 8, button)
             elseif modList[group[self.group.index].mode] == "MONSTER" then
                 self.windows.monsterRadar:click(x - 64, y - 8, button)
-            elseif modList[group[self.group.index].mode] == "ENTITY" then
-                self.windows.entitiesRadar:click(x - 64, y - 8, button)
+            --elseif modList[group[self.group.index].mode] == "ENTITY" then
+            --    self.windows.entitiesRadar:click(x - 64, y - 8, button)
             end
         end
     end
@@ -1131,8 +1203,8 @@ function absWindow:refresh()
         self.windows.playerRadar:refresh()
     elseif modList[group[self.group.index].mode] == "MONSTER" then
         self.windows.monsterRadar:refresh()
-    elseif modList[group[self.group.index].mode] == "ENTITY" then
-        self.windows.entitiesRadar:refresh()
+    --elseif modList[group[self.group.index].mode] == "ENTITY" then
+    --    self.windows.entitiesRadar:refresh()
     end
     self.drawW.sync()
 end
@@ -1256,7 +1328,7 @@ local getGoggles = function()
         end
 
         if flag then
-            for k, v in pairs(scanner.playerList) do
+            for k, v in pairs(scanner.players) do
                 for _, ca in pairs(linkedCannons) do
                     if ca.group then
                         if group[ca.group].mode == 1 and group[ca.group].HmsMode == 1 and group[ca.group].HmsUser ==
@@ -1712,20 +1784,8 @@ tm_monitors:init()
 
 termUtil:init()
 
-local runScanner = function()
-    parallel.waitForAll(getGoggles, scanner.run)
-end
-
-local runRednet = function()
-    parallel.waitForAll(redNet, beats)
-end
-
-local runListener = function()
-    parallel.waitForAll(runRednet, events)
-end
-
 local run = function()
-    parallel.waitForAll(runListener, runScanner)
+    parallel.waitForAll(redNet, beats, getGoggles, scanner.run, events)
 end
 
 run()
