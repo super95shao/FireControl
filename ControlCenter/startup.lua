@@ -287,6 +287,48 @@ end
 local unpackVec = function(v)
     return v.x, v.y, v.z
 end
+local quat = {}
+function quat.new()
+    return { w = 1, x = 0, y = 0, z = 0}
+end
+
+function quat.vecRot(q, v)
+    local x = q.x * 2
+    local y = q.y * 2
+    local z = q.z * 2
+    local xx = q.x * x
+    local yy = q.y * y
+    local zz = q.z * z
+    local xy = q.x * y
+    local xz = q.x * z
+    local yz = q.y * z
+    local wx = q.w * x
+    local wy = q.w * y
+    local wz = q.w * z
+    local res = {}
+    res.x = (1.0 - (yy + zz)) * v.x + (xy - wz) * v.y + (xz + wy) * v.z
+    res.y = (xy + wz) * v.x + (1.0 - (xx + zz)) * v.y + (yz - wx) * v.z
+    res.z = (xz - wy) * v.x + (yz + wx) * v.y + (1.0 - (xx + yy)) * v.z
+    return newVec(res.x, res.y, res.z)
+end
+
+function quat.multiply(q1, q2)
+    local newQuat = {}
+    newQuat.w = -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w
+    newQuat.x = q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x
+    newQuat.y = -q1.x * q2.z + q1.y * q2.w + q1.z * q2.x + q1.w * q2.y
+    newQuat.z = q1.x * q2.y - q1.y * q2.x + q1.z * q2.w + q1.w * q2.z
+    return newQuat
+end
+
+function quat.nega(q)
+    return {
+        w = q.w,
+        x = -q.x,
+        y = -q.y,
+        z = -q.z,
+    }
+end
 
 rayCaster = {
     block = nil
@@ -441,6 +483,7 @@ function scanner:getAllTarget()
     self:getShips(properties.raycastRange)
 end
 
+local selfPos, selfRot, selfOmega, self_velocity = coordinate.getAbsoluteCoordinates(), quat.new(), newVec(), newVec()
 scanner.run = function()
     while true do
         scanner:getAllTarget()
@@ -470,8 +513,12 @@ scanner.run = function()
             end
         end
 
-        local onVsShip = ship
-        local selfPos = onVsShip and ship.getWorldspacePosition() or coordinate.getAbsoluteCoordinates()
+        if ship then
+            selfPos = ship.getWorldspacePosition()
+            selfRot = ship.getQuaternion()
+            self_velocity = ship.getVelocity()
+            selfOmega = ship.getOmega()
+        end
     
         for k, v in pairs(group) do
             local kk1
@@ -530,6 +577,10 @@ scanner.run = function()
                         if ca.group and group[ca.group].name == v.name then
                             local iIndex = index % #newList + 1
                             rednet.send(ca.id, {
+                                pos = selfPos,
+                                rot = selfRot,
+                                center_velocity = self_velocity,
+                                omega = selfOmega,
                                 tgPos = v.radarTargets[iIndex],
                                 velocity = v.radarTargets[iIndex].velocity,
                                 mode = group[ca.group].mode,
@@ -551,6 +602,10 @@ scanner.run = function()
                     for _, ca in pairs(linkedCannons) do
                         if ca.group and group[ca.group].name == v.name then
                             rednet.send(ca.id, {
+                                pos = selfPos,
+                                rot = selfRot,
+                                center_velocity = self_velocity,
+                                omega = selfOmega,
                                 tgPos = v.radarTargets[1],
                                 velocity = v.radarTargets[1].velocity,
                                 mode = group[ca.group].mode,
@@ -895,14 +950,12 @@ function absRadarButtons:refreshRadar()
     self.drawW.rectangle(1, 1, 128, 120, 0x666666)
     self.drawW.line(64, 2, 64, 110, 0x666666)
     self.drawW.line(1, 56, 128, 56, 0x666666)
-    local onVsShip = ship
-    local selfPos = onVsShip and ship.getWorldspacePosition() or coordinate.getAbsoluteCoordinates()
 
-    local quat = {}
+    local q = {}
     if onVsShip then
-        quat = quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion()))
+        q = quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion()))
     else
-        quat = quatList[properties.face]
+        q = quatList[properties.face]
     end
 
     local scale = self.range / 64
@@ -913,7 +966,7 @@ function absRadarButtons:refreshRadar()
             z = v.z - selfPos.z
         }
         
-        tmpPos = RotateVectorByQuat(quat, tmpPos)
+        tmpPos = RotateVectorByQuat(q, tmpPos)
 
         local x, y = 64 - tmpPos.x / scale, 56 - tmpPos.z / scale
         if (x > 2 and x < 127) and (y > 2 and y < 111) then
@@ -986,15 +1039,12 @@ function absRadarButtons:RadarClick(x, y, button)
                 end
             end
         else
-            local onVsShip = ship
-            local selfPos = onVsShip and ship.getWorldspacePosition() or coordinate.getAbsoluteCoordinates()
-
-            local quat, tgName = {}, ""
+            local q, tgName = {}, ""
             if onVsShip then
-                quat = quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion()))
+                q = quatMultiply(quatList[properties.face], getConjQuat(ship.getQuaternion()))
                 tgName = ship.getName()
             else
-                quat = quatList[properties.face]
+                q = quatList[properties.face]
             end
             local scale = self.range / 64
             local minDis = 128
@@ -1007,7 +1057,7 @@ function absRadarButtons:RadarClick(x, y, button)
                         y = v.y - selfPos.y,
                         z = v.z - selfPos.z
                     }
-                    tmpPos = RotateVectorByQuat(quat, tmpPos)
+                    tmpPos = RotateVectorByQuat(q, tmpPos)
                     local px, py = 64 - tmpPos.x / scale, 56 - tmpPos.z / scale
                     v.clickDis = math.abs(x - px) + math.abs(y - py)
                     if group[self.group.index].mode > 2 then
@@ -1343,6 +1393,10 @@ local getGoggles = function()
                             end
 
                             rednet.send(ca.id, {
+                                pos = selfPos,
+                                rot = selfRot,
+                                center_velocity = self_velocity,
+                                omega = selfOmega,
                                 tgPos = v.targetPos,
                                 velocity = {
                                     x = 0,
@@ -1398,6 +1452,10 @@ local getGoggles = function()
                             if group[ca.group].mode == 1 and group[ca.group].HmsMode == 2 and group[ca.group].HmsUser ==
                                 v.name then
                                 rednet.send(ca.id, {
+                                    pos = selfPos,
+                                    rot = selfRot,
+                                    center_velocity = self_velocity,
+                                    omega = selfOmega,
                                     tgPos = v.targetPos,
                                     velocity = {
                                         x = 0,
@@ -1689,6 +1747,10 @@ local redNet = function()
                 if ca.group then
                     if group[ca.group].mode == 2 then
                         rednet.send(ca.id, {
+                            pos = selfPos,
+                            rot = selfRot,
+                            center_velocity = self_velocity,
+                            omega = selfOmega,
                             tgPos = group[ca.group].pos,
                             velocity = {
                                 x = 0,
