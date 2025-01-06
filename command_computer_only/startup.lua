@@ -1033,11 +1033,14 @@ local runTerm = function()
                 -- 刷新数据到properties
                 system.updatePersistentData()
                         
-                if properties.inversion == true then
-                    cannon.cross_offset.y = -2
-                else
-                    cannon.cross_offset.y = 2
+                if cannon.type == "createbigcannons:cannon_mount" then
+                    if properties.inversion == true then
+                        cannon.cross_offset.y = -2
+                    else
+                        cannon.cross_offset.y = 2
+                    end
                 end
+                
                 initIdleAg()
                 setYawAndPitch(cannon.idle_yaw, 0)
             end
