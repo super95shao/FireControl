@@ -323,7 +323,7 @@ function absMissilEListener:run()
         commands.execAsync(("%s Motion set value [%.4fd,%.4fd,%.4fd]"):format(tg_cmd, tg_motion.x, tg_motion.y, tg_motion.z))
 
         if self.time > max_flying_time or self.time > 5 and r_tg:len() < speed then
-            commands.execAsync(("%s Fuze set value {id:\"createbigcannons:timed_fuze\",tag:{FuzeTimer:1},Count:1b}"):format(tg_cmd))
+            commands.execAsync(("%s Fuze set value {id:\"createbigcannons:timed_fuze\",tag:{FuzeTimer:0},Count:1b}"):format(tg_cmd))
         else
             commands.execAsync(("%s Fuze set value %s"):format(tg_cmd, normFuze))
         end
