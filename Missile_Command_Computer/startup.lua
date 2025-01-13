@@ -33,6 +33,7 @@ system.reset = function()
         offset = 1,
         speed = 6,
         shot_ct = 10,
+        safe_time = 10,
         max_flying_time = 200,
     }
 end
@@ -302,6 +303,7 @@ local str_to_vec = function(str)
 end
 
 local normFuze = "{id:\"createbigcannons:timed_fuze\",tag:{FuzeTimer:20},Count:1b}"
+local proximity_fuze = "{id:\"createbigcannons:proximity_fuze\",tag:{DetonationDistance:1},Count:1b}"
 local targetPos = newVec()
 function absMissilEListener:run()
     local _, data = commands.exec(("data get entity @e[tag=%s, limit=1]"):format(self.uuid))
@@ -324,8 +326,9 @@ function absMissilEListener:run()
 
         if self.time > max_flying_time or self.time > 5 and r_tg:len() < speed then
             commands.execAsync(("%s Fuze set value {id:\"createbigcannons:timed_fuze\",tag:{FuzeTimer:0},Count:1b}"):format(tg_cmd))
-        else
-            commands.execAsync(("%s Fuze set value %s"):format(tg_cmd, normFuze))
+        elseif self.time > properties.safe_time then
+            local to_do = ("%s Fuze set value %s"):format(tg_cmd, proximity_fuze)
+            commands.execAsync(to_do)
         end
     else
         --commands.execAsync(("say not found %s, remove it"):format(self.uuid))
