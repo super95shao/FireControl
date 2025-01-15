@@ -3,7 +3,7 @@ local goggle_link_port = peripheral.find("goggle_link_port")
 local system, properties, linkedCannons, scanner, rayCaster, group, MONSTERLIST
 local linkedgoggles = {}
 local modList = {"HMS", "POINT", "SHIP", "PLAYER", "MONSTER"}
-local protocol, request_protocol = "CBCNetWork", "CBCcenter"
+local protocol, missile_protocol, request_protocol = "CBCNetWork", "CBCMissileNetWork", "CBCcenter"
 
 local tm_monitors = {
     list = {}
@@ -362,18 +362,32 @@ end
 
 local selfPos, selfRot, selfOmega, self_velocity = coordinate.getAbsoluteCoordinates(), quat.new(), newVec(), newVec()
 local rednet_parallel = {}
-local generateSendMethod = function(id, t_target, g_group)
-    return function()
-        rednet.send(id, {
-            pos = selfPos,
-            rot = selfRot,
-            center_velocity = self_velocity,
-            omega = selfOmega,
-            tgPos = t_target,
-            velocity = t_target.velocity,
-            mode = g_group.mode,
-            fire = g_group.fire
-        }, protocol)
+local generateSendMethod = function(name, id, t_target, g_group)
+    if name == "cbc_missile" then
+        return function()
+            rednet.send(id, {
+                pos = selfPos,
+                rot = selfRot,
+                center_velocity = self_velocity,
+                omega = selfOmega,
+                tgPos = t_target,
+                velocity = t_target.velocity,
+                missile = g_group.fire
+            }, missile_protocol)
+        end
+    else
+        return function()
+            rednet.send(id, {
+                pos = selfPos,
+                rot = selfRot,
+                center_velocity = self_velocity,
+                omega = selfOmega,
+                tgPos = t_target,
+                velocity = t_target.velocity,
+                mode = g_group.mode,
+                fire = g_group.fire
+            }, protocol)
+        end
     end
 end
 
@@ -598,7 +612,7 @@ scanner.run = function()
                     for _, ca in pairs(linkedCannons) do
                         if ca.group and group[ca.group].name == v.name then
                             local iIndex = index % #newList + 1
-                            rednet_parallel_insert(generateSendMethod(ca.id, v.radarTargets[iIndex], group[ca.group]))
+                            rednet_parallel_insert(generateSendMethod(ca.name, ca.id, v.radarTargets[iIndex], group[ca.group]))
                             index = index + 1
                         end
                     end
@@ -614,7 +628,7 @@ scanner.run = function()
                 
                     for _, ca in pairs(linkedCannons) do
                         if ca.group and group[ca.group].name == v.name then
-                            rednet_parallel_insert(generateSendMethod(ca.id, v.radarTargets[1], group[ca.group]))
+                            rednet_parallel_insert(generateSendMethod(ca.name, ca.id, v.radarTargets[1], group[ca.group]))
                         end
                     end
                 end
@@ -1399,7 +1413,7 @@ local getGoggles = function()
 
                             local t_tg = v.targetPos
                             t_tg.velocity = newVec()
-                            rednet_parallel_insert(generateSendMethod(ca.id, t_tg, {mode = 1, fire = group[ca.group].fire}))
+                            rednet_parallel_insert(generateSendMethod(ca.name, ca.id, t_tg, {mode = 1, fire = group[ca.group].fire}))
                         end
                     end
                 end
@@ -1446,7 +1460,7 @@ local getGoggles = function()
                             if group[ca.group].mode == 1 and group[ca.group].HmsMode == 2 and group[ca.group].HmsUser ==
                                 v.name then
                                 local t_tg = {x = v.targetPos.x, y = v.targetPos.y, z = v.targetPos.z, velocity = newVec()}
-                                rednet_parallel_insert(generateSendMethod(ca.id, t_tg, {mode = 1, fire = group[ca.group].fire}))
+                                rednet_parallel_insert(generateSendMethod(ca.name, ca.id, t_tg, {mode = 1, fire = group[ca.group].fire}))
                             end
                         end
                     end
@@ -1730,7 +1744,7 @@ local redNet = function()
                     if group[ca.group].mode == 2 then
                         local t_tg = group[ca.group].pos
                         t_tg.velocity = newVec()
-                        rednet_parallel_insert(generateSendMethod(ca.id, t_tg, {mode = 2, fire = group[ca.group].fire}))
+                        rednet_parallel_insert(generateSendMethod(ca.name, ca.id, t_tg, {mode = 2, fire = group[ca.group].fire}))
                     end
                 end
             end
