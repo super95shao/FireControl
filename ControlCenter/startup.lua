@@ -568,7 +568,7 @@ scanner.run = function()
             if v.mode == 3 then kk1 = "vsShips"
             elseif v.mode == 4 then kk1 = "players"
             elseif v.mode == 5 then kk1 = "monsters"
-            --elseif v.mode == 6 then kk1 = "entities"
+            elseif v.mode == 6 then kk1 = "mobs"
             end
 
             local kk2 = kk1 == "vsShips" and "slug" or "uuid"
