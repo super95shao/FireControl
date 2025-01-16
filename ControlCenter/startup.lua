@@ -2,7 +2,7 @@ local goggle_link_port = peripheral.find("goggle_link_port")
 
 local system, properties, linkedCannons, scanner, rayCaster, group, MONSTERLIST
 local linkedgoggles = {}
-local modList = {"HMS", "POINT", "SHIP", "PLAYER", "MONSTER"}
+local modList = {"HMS", "POINT", "SHIP", "PLAYER", "MONSTER", "MOBS"}
 local protocol, missile_protocol, request_protocol = "CBCNetWork", "CBCMissileNetWork", "CBCcenter"
 
 local tm_monitors = {
@@ -398,11 +398,12 @@ local rednet_parallel_insert = function (t)
 end
 
 scanner = {
+    mobs = {},
     vsShips = {},
     monsters = {},
     players = {},
     commander = {},
-    preMonster = {},
+    preMobs = {},
     preplayers = {},
     entities = {},
     preEntities = {},
@@ -440,32 +441,38 @@ function scanner:getPlayer(range)
     return self.players
 end
 
-function scanner:getMonster(scope)
-    self.monsters = coordinate.getMonster(scope)
+function scanner:getMobs(scope)
+    self.mobs = coordinate.getMobs(scope)
 
-    for k, v in pairs(self.preMonster) do
+    for k, v in pairs(self.preMobs) do
         v.flag = false
     end
 
-    if scanner.monsters ~= nil then
-        for k, v in pairs(scanner.monsters) do
-            if scanner.preMonster[k] then
+    scanner.monsters = {}
+    if scanner.mobs ~= nil then
+        for k, v in pairs(scanner.mobs) do
+            if scanner.preMobs[k] then
                 v.velocity = {
-                    x = v.x - scanner.preMonster[v.uuid].x,
-                    y = v.y - scanner.preMonster[v.uuid].y,
-                    z = v.z - scanner.preMonster[v.uuid].z
+                    x = v.x - scanner.preMobs[v.uuid].x,
+                    y = v.y - scanner.preMobs[v.uuid].y,
+                    z = v.z - scanner.preMobs[v.uuid].z
                 }
             else
                 v.velocity = newVec()
             end
+
+            if v.name == "monster" then
+                scanner.monsters[v.uuid] = v
+            end
+
             v.flag = true
-            scanner.preMonster[v.uuid] = v
+            scanner.preMobs[v.uuid] = v
         end
     end
 
-    for k, v in pairs(self.preMonster) do
+    for k, v in pairs(self.preMobs) do
         if not v.flag then
-            self.preMonster[k] = nil
+            self.preMobs[k] = nil
         end
     end
 
@@ -516,7 +523,7 @@ end
 
 function scanner:getAllTarget()
     self:getPlayer(properties.raycastRange)
-    self:getMonster(properties.raycastRange)
+    self:getMobs(properties.raycastRange)
     self:getShips(properties.raycastRange)
 end
 
@@ -1214,14 +1221,14 @@ function absWindow:init()
     }, {
         __index = absShipRadarWindow
     })
-    --self.windows.entitiesRadar = setmetatable({
-    --    drawW = self.drawW.createWindow(65, 8, 128, 120),
-    --    group = self.group,
-    --    tgTb = scanner,
-    --    tgK = "entities"
-    --}, {
-    --    __index = absShipRadarWindow
-    --})
+    self.windows.MobsRadar = setmetatable({
+        drawW = self.drawW.createWindow(65, 8, 128, 120),
+        group = self.group,
+        tgTb = scanner,
+        tgK = "mobs"
+    }, {
+        __index = absShipRadarWindow
+    })
 
     self:refresh()
 end
@@ -1249,8 +1256,8 @@ function absWindow:click(x, y, button)
                 self.windows.playerRadar:click(x - 64, y - 8, button)
             elseif modList[group[self.group.index].mode] == "MONSTER" then
                 self.windows.monsterRadar:click(x - 64, y - 8, button)
-            --elseif modList[group[self.group.index].mode] == "ENTITY" then
-            --    self.windows.entitiesRadar:click(x - 64, y - 8, button)
+            elseif modList[group[self.group.index].mode] == "MOBS" then
+                self.windows.MobsRadar:click(x - 64, y - 8, button)
             end
         end
     end
@@ -1272,8 +1279,8 @@ function absWindow:refresh()
         self.windows.playerRadar:refresh()
     elseif modList[group[self.group.index].mode] == "MONSTER" then
         self.windows.monsterRadar:refresh()
-    --elseif modList[group[self.group.index].mode] == "ENTITY" then
-    --    self.windows.entitiesRadar:refresh()
+    elseif modList[group[self.group.index].mode] == "MOBS" then
+        self.windows.MobsRadar:refresh()
     end
     self.drawW.sync()
 end
